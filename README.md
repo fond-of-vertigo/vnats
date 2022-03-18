@@ -123,11 +123,7 @@ func main() {
 	// Wait for stop signal (e.g. ctrl-C)
 	waitForStopSignal()
 	
-	// Unsubscribe and close NATS connection
-	if err := sub.Unsubscribe(); err != nil {
-		log.Errorf("Subscriber could not be unsubscribed: %v", err)
-	}
-	
+	// Unsubscribe to all open subscriptions and close NATS connection
 	if err := conn.Close(); err != nil {
 		log.Errorf("NATS connection could not be closed: %v", err)
 	}

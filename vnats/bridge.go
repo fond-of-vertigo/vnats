@@ -10,7 +10,7 @@ import (
 // bridge is required to use a mock for the nats functions in unit tests
 type bridge interface {
 	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
-	CreateSubscription(subject string, consumerName string) (*nats.Subscription, error)
+	CreateSubscription(subject string, consumerName string) (subscription, error)
 	Servers() []string
 	PublishMsg(m *nats.Msg, opts ...nats.PubOpt) (*nats.PubAck, error)
 	Drain() error
@@ -78,9 +78,9 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 	return streamInfo, nil
 }
 
-// CreateSubscription creates a subscription, that can fetch messages from a specified subject.
+// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
 // The first token of a subject will be interpreted as the streamName.
-func (c *natsBridge) CreateSubscription(subject string, consumerName string) (*nats.Subscription, error) {
+func (c *natsBridge) CreateSubscription(subject string, consumerName string) (subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	_, err := c.getOrAddConsumer(&nats.ConsumerConfig{
 		Durable:   consumerName,
@@ -89,7 +89,13 @@ func (c *natsBridge) CreateSubscription(subject string, consumerName string) (*n
 	if err != nil {
 		return nil, err
 	}
-	return c.jetStreamContext.PullSubscribe(subject, consumerName, nats.Bind(streamName, consumerName))
+
+	sub, err := c.jetStreamContext.PullSubscribe(subject, consumerName, nats.Bind(streamName, consumerName))
+	if err != nil {
+		return nil, err
+	}
+
+	return &natsSubscription{streamSubscription: sub}, nil
 }
 
 func (c *natsBridge) getOrAddConsumer(consumerConfig *nats.ConsumerConfig, streamName string) (*nats.ConsumerInfo, error) {
@@ -119,7 +125,7 @@ func (c *natsBridge) Servers() []string {
 // of the publishers, the connection will be closed. Use the ClosedCB()
 // option to know when the connection has moved from draining to closed.
 //
-// See note in Subscription.Drain for JetStream subscriptions.
+// See note in subscription.Drain for JetStream subscriptions.
 func (c *natsBridge) Drain() error {
 	return c.connection.Drain()
 }

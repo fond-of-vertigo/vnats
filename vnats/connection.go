@@ -19,8 +19,9 @@ type Connection interface {
 }
 
 type connection struct {
-	nats bridge
-	log  logger.Logger
+	nats          bridge
+	log           logger.Logger
+	subscriptions []subscription
 }
 
 // Connect connects to a NATS server/cluster
@@ -39,7 +40,7 @@ func Connect(servers []string, logger logger.Logger) (Connection, error) {
 }
 
 // NewPublisher creates a publisher for the given streamName.
-// If the streamInfo does not exist, it is created.
+// Stream will be created if it does not exist.
 func (c *connection) NewPublisher(streamName string) (Publisher, error) {
 	return makePublisher(c, streamName, c.log)
 }
@@ -47,11 +48,24 @@ func (c *connection) NewPublisher(streamName string) (Publisher, error) {
 // NewSubscriber creates a subscriber for the given consumer name and subject.
 // Consumer will be created if it does not exist.
 func (c *connection) NewSubscriber(consumerName string, subject string) (Subscriber, error) {
-	return makeSubscriber(c, subject, consumerName, c.log)
+	sub, err := makeSubscriber(c, subject, consumerName, c.log)
+	if err != nil {
+		return nil, err
+	}
+	c.subscriptions = append(c.subscriptions, sub.subscription)
+	return sub, nil
 }
 
 // Close closes the nats connection and drains all messages.
 func (c *connection) Close() error {
+	c.log.Debugf("Draining and closing open subscriptions..")
+	for _, sub := range c.subscriptions {
+		if err := sub.Drain(); err != nil {
+			return err
+		}
+	}
+	c.log.Debugf("Closed all open subscriptions.")
+
 	c.log.Debugf("Closing NATS connection...")
 	if err := c.nats.Drain(); err != nil {
 		return fmt.Errorf("NATS connection could not be closed: %w", err)

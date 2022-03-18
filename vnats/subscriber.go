@@ -18,7 +18,7 @@ type MsgHandler func(data []byte) error
 
 type subscriber struct {
 	conn         *connection
-	subscription *nats.Subscription
+	subscription subscription
 	log          logger.Logger
 	consumerName string
 }
