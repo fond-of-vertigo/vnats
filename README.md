@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// Create publisher bound to stream `PRODUCTS`
-	publisher, err := conn.NewPublisher("PRODUCTS")
+	pub, err := conn.NewPublisher("PRODUCTS")
 	if err != nil {
 		log.Errorf("Could not create publisher: %v", err)
 	}
@@ -59,7 +59,7 @@ func main() {
 	// Publish message to stream `PRODUCTS.PRICES` with a context bound, unique message ID 
 	// msgID is used for deduplication
 	msgID := fmt.Sprintf("%s-%s", p.Name, p.LastUpdated)
-	if err := publisher.Publish("PRODUCTS.PRICES", p, msgID); err != nil {
+	if err := pub.Publish("PRODUCTS.PRICES", p, msgID); err != nil {
 		log.Errorf("Could not publish %v: %v", p, err)
 	}
     
@@ -112,19 +112,19 @@ func main() {
 
 	// Create Pull-Subscriber bound to consumer `EXAMPLE_CONSUMER` 
 	// and the subject `PRODUCTS.PRICES`
-	subscriber, err := conn.NewSubscriber("EXAMPLE_CONSUMER", "PRODUCTS.PRICES")
+	sub, err := conn.NewSubscriber("EXAMPLE_CONSUMER", "PRODUCTS.PRICES")
 	if err != nil {
 		log.Errorf("Could not create subscriber: %v", err)
 	}
     
 	// Subscribe and specify messageHandler
-	subscriber.Subscribe(messageHandler)
+	sub.Subscribe(msgHandler)
     
 	// Wait for stop signal (e.g. ctrl-C)
 	waitForStopSignal()
 	
 	// Unsubscribe and close NATS connection
-	if err := subscriber.Unsubscribe(); err != nil {
+	if err := sub.Unsubscribe(); err != nil {
 		log.Errorf("Subscriber could not be unsubscribed: %v", err)
 	}
 	
@@ -134,7 +134,7 @@ func main() {
 
 }
 
-func messageHandler(data []byte) error {
+func msgHandler(data []byte) error {
 	var p Product
 	
 	if err := json.Unmarshal(data, &p); err != nil {
