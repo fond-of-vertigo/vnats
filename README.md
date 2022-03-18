@@ -135,11 +135,12 @@ func main() {
 }
 
 func messageHandler(data []byte) error {
-
 	var p Product
+	
 	if err := json.Unmarshal(data, &p); err != nil {
 		return err
 	}
+	
 	log.Debugf("Received product: %v", p)
 	return nil
 }
