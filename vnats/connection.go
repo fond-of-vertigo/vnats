@@ -13,8 +13,9 @@ type Connection interface {
 	// If the streamInfo does not exist, it is created.
 	NewPublisher(streamName string) (Publisher, error)
 
-	// NewSubscriber creates a publisher for the given subject.
-	NewSubscriber(consumerName, subject string) (Subscriber, error)
+	// NewSubscriber creates a subscriber for the given consumer name and subject.
+	// Consumer will be created if it does not exist.
+	NewSubscriber(consumerName string, subject string) (Subscriber, error)
 }
 
 type connection struct {
@@ -37,17 +38,19 @@ func Connect(servers []string, logger logger.Logger) (Connection, error) {
 	return conn, nil
 }
 
-// NewPublisher creates a new publisher for the given streamInfo name
+// NewPublisher creates a publisher for the given streamName.
+// If the streamInfo does not exist, it is created.
 func (c *connection) NewPublisher(streamName string) (Publisher, error) {
 	return makePublisher(c, streamName, c.log)
 }
 
-// NewSubscriber creates a new subscriber for the given streamInfo name
-func (c *connection) NewSubscriber(consumerName, subject string) (Subscriber, error) {
+// NewSubscriber creates a subscriber for the given consumer name and subject.
+// Consumer will be created if it does not exist.
+func (c *connection) NewSubscriber(consumerName string, subject string) (Subscriber, error) {
 	return makeSubscriber(c, subject, consumerName, c.log)
 }
 
-// Close closes the nats connection and drains all messages
+// Close closes the nats connection and drains all messages.
 func (c *connection) Close() error {
 	c.log.Debugf("Closing NATS connection...")
 	if err := c.nats.Drain(); err != nil {

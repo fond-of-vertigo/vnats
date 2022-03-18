@@ -7,12 +7,13 @@ import (
 )
 
 type Subscriber interface {
+	// Subscribe expects a message handler which will be called whenever a new message is received.
 	Subscribe(handler MsgHandler)
+	// Unsubscribe unsubscribes to the related consumer.
 	Unsubscribe() error
 }
 
-// MsgHandler returns the message as a byte array and must be manually unmarshalled to the specific interface.
-
+// MsgHandler returns the message as a slice of bytes and must be manually unmarshalled to the specific interface.
 type MsgHandler func(data []byte) error
 
 type subscriber struct {
@@ -22,6 +23,7 @@ type subscriber struct {
 	consumerName string
 }
 
+// Subscribe expects a message handler which will be called whenever a new message is received.
 func (s *subscriber) Subscribe(handler MsgHandler) {
 	go func() {
 		for {
@@ -49,6 +51,7 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 	}()
 }
 
+// Unsubscribe unsubscribes to the related consumer.
 func (s *subscriber) Unsubscribe() error {
 	if err := s.subscription.Unsubscribe(); err != nil {
 		return err

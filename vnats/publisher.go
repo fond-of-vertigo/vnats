@@ -9,6 +9,9 @@ import (
 )
 
 type Publisher interface {
+	// Publish sends data to a specified subject to a streamInfo.
+	// Each message has a msgID for de-duplication relative to
+	// the duplication-time-window of each streamInfo.
 	Publish(subject string, data interface{}, msgID string) error
 }
 
