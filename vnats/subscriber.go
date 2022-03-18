@@ -27,7 +27,7 @@ type subscriber struct {
 func (s *subscriber) Subscribe(handler MsgHandler) {
 	go func() {
 		for {
-			messages, err := s.subscription.Fetch(1)
+			msg, err := s.subscription.Fetch()
 			if err != nil {
 				if err == nats.ErrTimeout {
 					s.log.Debugf("No new messages, timeout.")
@@ -37,15 +37,15 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 				continue
 			}
 
-			msg := messages[0]
-			s.log.Debugf("Receive msg: %s: %s", msg.Reply, string(msg.Data))
+			s.log.Debugf("Receive msg: %s", string(msg.Data()))
 
-			if err = handler(msg.Data); err != nil {
+			if err = handler(msg.Data()); err != nil {
 				s.log.Errorf("Message handle error: %v", err)
-
+				continue
 			}
+
 			if err = msg.AckSync(); err != nil {
-				s.log.Errorf("AckSync failed: %v", err)
+				s.log.Errorf("AckSync failed: %w", err)
 			}
 		}
 	}()
