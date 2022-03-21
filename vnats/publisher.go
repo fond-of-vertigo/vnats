@@ -52,6 +52,9 @@ func (p *publisher) Publish(subject string, data interface{}, msgID string) erro
 }
 
 func makePublisher(conn *connection, streamName string, logger logger.Logger) (*publisher, error) {
+	if err := validateStreamName(streamName); err != nil {
+		return nil, err
+	}
 	_, err := conn.nats.GetOrAddStream(&nats.StreamConfig{
 		Name:       streamName,
 		Subjects:   []string{streamName + ".>"},
@@ -68,4 +71,14 @@ func makePublisher(conn *connection, streamName string, logger logger.Logger) (*
 		log:  logger,
 	}
 	return p, nil
+}
+
+func validateStreamName(streamName string) error {
+	if streamName == "" {
+		return fmt.Errorf("streamName cannot be empty")
+	}
+	if strings.ContainsAny(streamName, "*.>") {
+		return fmt.Errorf("streamName cannot contain any of chars: *.>")
+	}
+	return nil
 }
