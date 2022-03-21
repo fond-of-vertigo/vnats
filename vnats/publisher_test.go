@@ -19,10 +19,9 @@ func Test_publisher_Publish(t *testing.T) {
 		msgId      string
 	}
 	tests := []struct {
-		name     string
-		args     args
-		wantData interface{}
-		wantErr  bool
+		name    string
+		args    args
+		wantErr bool
 	}{
 		{
 			name: "Publish test message",
@@ -33,19 +32,75 @@ func Test_publisher_Publish(t *testing.T) {
 				subject:    "MESSAGES.Important",
 				msgId:      "msg-001",
 			},
-			wantData: testMessagePayload{message: "hello world"},
-			wantErr:  false,
+			wantErr: false,
+		},
+		{
+			name: "Publish to subject not starting with streamName",
+
+			args: args{
+				data:       testMessagePayload{message: "hello world"},
+				streamName: "MESSAGES",
+				subject:    "Important",
+				msgId:      "msg-001",
+			},
+			wantErr: true,
+		},
+		{
+			name: "Publish to empty subject",
+
+			args: args{
+				data:       testMessagePayload{message: "hello world"},
+				streamName: "MESSAGES",
+				subject:    "",
+				msgId:      "msg-001",
+			},
+			wantErr: true,
+		},
+		{
+			name: "Publish to empty streamName",
+
+			args: args{
+				data:       testMessagePayload{message: "hello world"},
+				streamName: "",
+				subject:    "MESSAGES",
+				msgId:      "msg-001",
+			},
+			wantErr: true,
+		},
+		{
+			name: "Publish to empty streamName & empty subject",
+
+			args: args{
+				data:       testMessagePayload{message: "hello world"},
+				streamName: "",
+				subject:    "",
+				msgId:      "msg-001",
+			},
+			wantErr: true,
+		},
+
+		{
+			name: "Publish to subject starting with .",
+
+			args: args{
+				data:       testMessagePayload{message: "hello world"},
+				streamName: "MESSAGES",
+				subject:    ".Messages.Important",
+				msgId:      "msg-001",
+			},
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wantDataToBytes, err := json.Marshal(tt.wantData)
+			wantDataToBytes, err := json.Marshal(tt.args.data)
 			if err != nil {
 				t.Error(err)
 			}
 			pub := &publisher{
-				conn: makeTestConnection(tt.args.streamName, 1, wantDataToBytes, tt.args.msgId, nil),
-				log:  testLogger,
+				conn:       makeTestConnection(tt.args.streamName, 1, wantDataToBytes, tt.args.msgId, nil),
+				log:        testLogger,
+				streamName: tt.args.streamName,
 			}
 			err = pub.Publish(tt.args.subject, tt.args.data, tt.args.msgId)
 			if (err != nil) != tt.wantErr {

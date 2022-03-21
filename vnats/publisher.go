@@ -16,16 +16,20 @@ type Publisher interface {
 }
 
 type publisher struct {
-	conn *connection
-	log  logger.Logger
+	conn       *connection
+	streamName string
+	log        logger.Logger
 }
 
-func validateSubject(subject string) error {
+func validateSubject(subject string, streamName string) error {
+	if err := validateStreamName(streamName); err != nil {
+		return err
+	}
 	if subject == "" {
 		return fmt.Errorf("subject cannot be empty")
 	}
-	if strings.HasPrefix(subject, ".") {
-		return fmt.Errorf("subject needs to start with `STREAM_NAME.`")
+	if !strings.HasPrefix(subject, streamName+".") {
+		return fmt.Errorf("subject needs to begin with `STREAM_NAME.`")
 	}
 	return nil
 }
@@ -34,7 +38,7 @@ func validateSubject(subject string) error {
 // Each message has a msgID for de-duplication relative to
 // the duplication-time-window of each streamInfo.
 func (p *publisher) Publish(subject string, data interface{}, msgID string) error {
-	if err := validateSubject(subject); err != nil {
+	if err := validateSubject(subject, p.streamName); err != nil {
 		return err
 	}
 
@@ -67,8 +71,9 @@ func makePublisher(conn *connection, streamName string, logger logger.Logger) (*
 	}
 
 	p := &publisher{
-		conn: conn,
-		log:  logger,
+		conn:       conn,
+		log:        logger,
+		streamName: streamName,
 	}
 	return p, nil
 }
