@@ -138,8 +138,9 @@ func Test_makePublisher(t *testing.T) {
 				logger:     testLogger,
 			},
 			want: &publisher{
-				conn: connectionEmptySubscriptions,
-				log:  testLogger,
+				conn:       connectionEmptySubscriptions,
+				streamName: "PRODUCTS",
+				log:        testLogger,
 			},
 			wantErr: false,
 		},
