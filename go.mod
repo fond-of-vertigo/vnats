@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/fond-of/logging.go v0.0.0-20220317134928-2f6aeb30616b
+	github.com/google/go-cmp v0.5.5
 	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
 )
 
