@@ -37,7 +37,7 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 				continue
 			}
 
-			s.log.Debugf("Receive msg: %s", string(msg.Data()))
+			s.log.Debugf("Receive Message - MsgID: %s, Data: %s", msg.MsgID(), string(msg.Data()))
 
 			if err = handler(msg.Data()); err != nil {
 				s.log.Errorf("Message handle error: %v", err)

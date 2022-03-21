@@ -5,6 +5,7 @@ import "github.com/nats-io/nats.go"
 type message interface {
 	AckSync() error
 	Data() []byte
+	MsgID() string
 }
 
 type natsMsg struct {
@@ -17,6 +18,9 @@ func (m *natsMsg) AckSync() error {
 
 func (m *natsMsg) Data() []byte {
 	return m.msg.Data
+}
+func (m *natsMsg) MsgID() string {
+	return m.msg.Header.Get("Nats-Msg-Id")
 }
 
 type subscription interface {
