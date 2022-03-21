@@ -78,33 +78,45 @@ func Test_publisher_Publish(t *testing.T) {
 			},
 			wantErr: true,
 		},
-
 		{
 			name: "Publish to subject starting with .",
 
 			args: args{
 				data:       testMessagePayload{message: "hello world"},
 				streamName: "MESSAGES",
-				subject:    ".Messages.Important",
+				subject:    ".MESSAGES.Important",
 				msgId:      "msg-001",
 			},
 			wantErr: true,
+		}, {
+			name: "Publish a string",
+
+			args: args{
+				data:       "test message",
+				streamName: "MESSAGES",
+				subject:    "MESSAGES.Important",
+				msgId:      "msg-001",
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wantDataToBytes, err := json.Marshal(tt.args.data)
-			if err != nil {
-				t.Error(err)
-			}
+			wantDataToBytes, marshalErr := json.Marshal(tt.args.data)
 			pub := &publisher{
 				conn:       makeTestConnection(tt.args.streamName, 1, wantDataToBytes, tt.args.msgId, nil),
 				log:        testLogger,
 				streamName: tt.args.streamName,
 			}
-			err = pub.Publish(tt.args.subject, tt.args.data, tt.args.msgId)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Publish() error = %v, wantErr %v", err, tt.wantErr)
+			err := pub.Publish(tt.args.subject, tt.args.data, tt.args.msgId)
+			if ((err != nil) != tt.wantErr) && ((marshalErr != nil) != tt.wantErr) {
+				var foundErr error
+				if err != nil {
+					foundErr = err
+				} else {
+					foundErr = marshalErr
+				}
+				t.Errorf("Publish() error = %v, wantErr %v", foundErr, tt.wantErr)
 				return
 			}
 
