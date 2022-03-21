@@ -44,8 +44,8 @@ func (p *publisher) Publish(subject string, data interface{}, msgID string) erro
 	}
 
 	p.log.Debugf("Publish message with msg-ID: %s @ %s\n", msgID, subject)
-
-	if _, err = p.conn.nats.PublishMsg(&nats.Msg{Subject: subject, Data: dataBytes}, nats.MsgId(msgID)); err != nil {
+	msg := NewMessage(subject, dataBytes)
+	if err = p.conn.nats.PublishMsg(msg, msgID); err != nil {
 		return fmt.Errorf("message with msg-ID: %s @ %s could not be published: %w", msgID, subject, err)
 	}
 	return nil
