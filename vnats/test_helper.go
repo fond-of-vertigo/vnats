@@ -25,11 +25,11 @@ func (b *testBridge) Servers() []string {
 	return nil
 }
 
-func (b *testBridge) PublishMsg(msg Message, msgID string) error {
-	testLogger.Debugf("%s\n", string(msg.Data()))
-	if diff := cmp.Diff(msg.Data(), b.wantData); diff != "" {
+func (b *testBridge) PublishMsg(msg *nats.Msg, msgID string) error {
+	testLogger.Debugf("%s\n", string(msg.Data))
+	if diff := cmp.Diff(msg.Data, b.wantData); diff != "" {
 		testLogger.Errorf(diff)
-		return fmt.Errorf("wrong message found=%s (id=%s) want=%s (id=%s)", string(msg.Data()), msgID, string(b.wantData), b.wantMessageID)
+		return fmt.Errorf("wrong message found=%s (id=%s) want=%s (id=%s)", string(msg.Data), msgID, string(b.wantData), b.wantMessageID)
 	}
 	if msgID != b.wantMessageID {
 		return fmt.Errorf("wrong message ID found=%s want=%s", msgID, b.wantMessageID)

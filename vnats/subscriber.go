@@ -37,15 +37,15 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 				continue
 			}
 
-			s.log.Debugf("Receive Message - MsgID: %s, Data: %s", msg.MsgID(), string(msg.Data()))
+			s.log.Debugf("Receive Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
 
-			if err = handler(msg.Data()); err != nil {
+			if err = handler(msg.Data); err != nil {
 				s.log.Errorf("Message handle error: %v", err)
 				continue
 			}
 
-			if err = msg.AckSync(); err != nil {
-				s.log.Errorf("AckSync failed: %w", err)
+			if err = msg.Ack(); err != nil {
+				s.log.Errorf("Ack failed: %w", err)
 			}
 		}
 	}()

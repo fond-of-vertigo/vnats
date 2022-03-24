@@ -12,7 +12,7 @@ type bridge interface {
 	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
 	CreateSubscription(subject string, consumerName string) (subscription, error)
 	Servers() []string
-	PublishMsg(msg Message, msgID string) error
+	PublishMsg(msg *nats.Msg, msgID string) error
 	Drain() error
 }
 
@@ -54,8 +54,8 @@ func makeNATSBridge(servers []string, log logger.Logger) (bridge, error) {
 }
 
 // PublishMsg publishes a Msg to JetStream.
-func (c *natsBridge) PublishMsg(msg Message, msgID string) error {
-	_, err := c.jetStreamContext.PublishMsg(&nats.Msg{Subject: msg.Subject(), Data: msg.Data()}, nats.MsgId(msgID))
+func (c *natsBridge) PublishMsg(msg *nats.Msg, msgID string) error {
+	_, err := c.jetStreamContext.PublishMsg(msg, nats.MsgId(msgID))
 	return err
 }
 
