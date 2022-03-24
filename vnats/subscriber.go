@@ -34,18 +34,24 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 				} else {
 					s.log.Errorf("Failed to receive msg: %s", err.Error())
 				}
+
 				continue
 			}
 
-			s.log.Debugf("Receive Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
+			s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
 
 			if err = handler(msg.Data); err != nil {
-				s.log.Errorf("Message handle error: %v", err)
+				s.log.Errorf("Message handle error, will be NAKED: %v", err)
+
+				if err := msg.Nak(); err != nil {
+					s.log.Errorf("Nak failed: %v", err)
+				}
+
 				continue
 			}
 
 			if err = msg.Ack(); err != nil {
-				s.log.Errorf("Ack failed: %w", err)
+				s.log.Errorf("Ack failed: %v", err)
 			}
 		}
 	}()
