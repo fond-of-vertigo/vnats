@@ -5,6 +5,7 @@ import (
 	"github.com/fond-of/logging.go/logger"
 	"github.com/nats-io/nats.go"
 	"strings"
+	"time"
 )
 
 // bridge is required to use a mock for the nats functions in unit tests
@@ -86,6 +87,7 @@ func (c *natsBridge) CreateSubscription(subject string, consumerName string) (su
 	_, err := c.getOrAddConsumer(&nats.ConsumerConfig{
 		Durable:   consumerName,
 		AckPolicy: nats.AckExplicitPolicy,
+		AckWait:   time.Minute * 30,
 	}, streamName)
 	if err != nil {
 		return nil, err
