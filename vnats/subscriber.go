@@ -24,6 +24,7 @@ type subscriber struct {
 }
 
 // Subscribe expects a message handler which will be called whenever a new message is received.
+// The MsgHandler MUST finish its task in under 30 minutes.
 func (s *subscriber) Subscribe(handler MsgHandler) {
 	go func() {
 		for {

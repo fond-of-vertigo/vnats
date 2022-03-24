@@ -76,7 +76,10 @@ func main() {
 We use a pull-based subscriber by default, which scales horizontally.
 The subscriber is asynchronous and pulls continuously for new messages.
 A message handler is needed to process each message. 
-The message will be passed as a slice of bytes `[]byte`.
+The message will be passed as a slice of bytes `[]byte`. 
+
+**Important**: The `MsgHandler` **MUST** finish its task under 30 minutes. 
+If this is exceeded, the message will be redelivered and can result in nasty bugs.
 
 #### Example
 
