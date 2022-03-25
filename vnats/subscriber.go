@@ -29,35 +29,38 @@ type subscriber struct {
 func (s *subscriber) Subscribe(handler MsgHandler) {
 	go func() {
 		for {
-			if <-s.quitSignal {
+			select {
+			case <-s.quitSignal:
 				s.log.Debugf("Received signal to quit subscription go-routine.")
 				return
-			}
-			msg, err := s.subscription.Fetch()
-			if err != nil {
-				if err == nats.ErrTimeout {
-					s.log.Debugf("No new messages, timeout.")
-				} else {
-					s.log.Errorf("Failed to receive msg: %s", err.Error())
+
+			default:
+				msg, err := s.subscription.Fetch()
+				if err != nil {
+					if err == nats.ErrTimeout {
+						s.log.Debugf("No new messages, timeout.")
+					} else {
+						s.log.Errorf("Failed to receive msg: %s", err.Error())
+					}
+
+					continue
 				}
 
-				continue
-			}
+				s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
 
-			s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
+				if err = handler(msg.Data); err != nil {
+					s.log.Errorf("Message handle error, will be NAKED: %v", err)
 
-			if err = handler(msg.Data); err != nil {
-				s.log.Errorf("Message handle error, will be NAKED: %v", err)
+					if err := msg.Nak(); err != nil {
+						s.log.Errorf("Nak failed: %v", err)
+					}
 
-				if err := msg.Nak(); err != nil {
-					s.log.Errorf("Nak failed: %v", err)
+					continue
 				}
 
-				continue
-			}
-
-			if err = msg.Ack(); err != nil {
-				s.log.Errorf("Ack failed: %v", err)
+				if err = msg.Ack(); err != nil {
+					s.log.Errorf("Ack failed: %v", err)
+				}
 			}
 		}
 	}()

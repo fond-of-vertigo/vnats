@@ -64,6 +64,7 @@ func (c *connection) Close() error {
 			return err
 		}
 		sub.quitSignal <- true
+		close(sub.quitSignal)
 	}
 	c.log.Debugf("Closed all open subscriptions.")
 
