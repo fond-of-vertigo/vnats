@@ -21,6 +21,7 @@ type subscriber struct {
 	subscription subscription
 	log          logger.Logger
 	consumerName string
+	quitSignal   chan bool
 }
 
 // Subscribe expects a message handler which will be called whenever a new message is received.
@@ -28,6 +29,9 @@ type subscriber struct {
 func (s *subscriber) Subscribe(handler MsgHandler) {
 	go func() {
 		for {
+			if <-s.quitSignal {
+				return
+			}
 			msg, err := s.subscription.Fetch()
 			if err != nil {
 				if err == nats.ErrTimeout {
@@ -78,6 +82,7 @@ func makeSubscriber(conn *connection, subject string, consumerName string, logge
 		subscription: sub,
 		log:          logger,
 		consumerName: consumerName,
+		quitSignal:   make(chan bool),
 	}
 	return p, nil
 }

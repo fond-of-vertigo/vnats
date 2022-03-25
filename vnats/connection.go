@@ -19,9 +19,9 @@ type Connection interface {
 }
 
 type connection struct {
-	nats          bridge
-	log           logger.Logger
-	subscriptions []subscription
+	nats        bridge
+	log         logger.Logger
+	subscribers []*subscriber
 }
 
 // Connect connects to a NATS server/cluster
@@ -52,17 +52,18 @@ func (c *connection) NewSubscriber(consumerName string, subject string) (Subscri
 	if err != nil {
 		return nil, err
 	}
-	c.subscriptions = append(c.subscriptions, sub.subscription)
+	c.subscribers = append(c.subscribers, sub)
 	return sub, nil
 }
 
 // Close closes the nats connection and drains all messages.
 func (c *connection) Close() error {
 	c.log.Debugf("Draining and closing open subscriptions..")
-	for _, sub := range c.subscriptions {
-		if err := sub.Drain(); err != nil {
+	for _, sub := range c.subscribers {
+		if err := sub.subscription.Drain(); err != nil {
 			return err
 		}
+		sub.quitSignal <- true
 	}
 	c.log.Debugf("Closed all open subscriptions.")
 
