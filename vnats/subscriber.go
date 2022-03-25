@@ -30,6 +30,7 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 	go func() {
 		for {
 			if <-s.quitSignal {
+				s.log.Debugf("Received signal to quit subscription go-routine.")
 				return
 			}
 			msg, err := s.subscription.Fetch()
