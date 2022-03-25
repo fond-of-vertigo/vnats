@@ -85,9 +85,10 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 func (c *natsBridge) CreateSubscription(subject string, consumerName string) (subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	_, err := c.getOrAddConsumer(&nats.ConsumerConfig{
-		Durable:   consumerName,
-		AckPolicy: nats.AckExplicitPolicy,
-		AckWait:   time.Minute * 30,
+		Durable:       consumerName,
+		AckPolicy:     nats.AckExplicitPolicy,
+		AckWait:       time.Minute * 30,
+		MaxAckPending: 1,
 	}, streamName)
 	if err != nil {
 		return nil, err
