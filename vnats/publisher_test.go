@@ -132,9 +132,9 @@ func Test_makePublisher(t *testing.T) {
 	}
 	natsTestBridge := makeTestNATSBridge("PRODUCTS", 1, nil, "test")
 	connectionEmptySubscriptions := &connection{
-		nats:          natsTestBridge,
-		log:           testLogger,
-		subscriptions: nil,
+		nats:        natsTestBridge,
+		log:         testLogger,
+		subscribers: nil,
 	}
 	tests := []struct {
 		name    string

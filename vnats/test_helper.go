@@ -54,10 +54,10 @@ func makeTestNATSBridge(streamName string, currentSequenceNumber uint64, wantDat
 	}
 }
 
-func makeTestConnection(streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []subscription) *connection {
+func makeTestConnection(streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []*subscriber) *connection {
 	return &connection{
-		nats:          makeTestNATSBridge(streamName, currentSequenceNumber, wantData, wantMessageID),
-		log:           testLogger,
-		subscriptions: wantSubs,
+		nats:        makeTestNATSBridge(streamName, currentSequenceNumber, wantData, wantMessageID),
+		log:         testLogger,
+		subscribers: wantSubs,
 	}
 }
