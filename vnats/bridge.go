@@ -11,7 +11,7 @@ import (
 // bridge is required to use a mock for the nats functions in unit tests
 type bridge interface {
 	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
-	CreateSubscription(subject string, consumerName string) (subscription, error)
+	CreateSubscription(subject string, consumerName string, opts ...ConOpt) (subscription, error)
 	Servers() []string
 	PublishMsg(msg *nats.Msg, msgID string) error
 	Drain() error
@@ -80,16 +80,41 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 	return streamInfo, nil
 }
 
+type ConOpt interface {
+	configureConsumerConfig(c *nats.ConsumerConfig) error
+}
+
+type AckWait time.Duration
+
+func (a AckWait) configureConsumerConfig(c *nats.ConsumerConfig) error {
+	c.AckWait = time.Duration(a)
+	return nil
+}
+
+type MaxAckPending int
+
+func (a MaxAckPending) configureConsumerConfig(c *nats.ConsumerConfig) error {
+	c.MaxAckPending = int(a)
+	return nil
+}
+
 // CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
 // The first token of a subject will be interpreted as the streamName.
-func (c *natsBridge) CreateSubscription(subject string, consumerName string) (subscription, error) {
+func (c *natsBridge) CreateSubscription(subject string, consumerName string, opts ...ConOpt) (subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
-	_, err := c.getOrAddConsumer(&nats.ConsumerConfig{
+	config := &nats.ConsumerConfig{
 		Durable:       consumerName,
 		AckPolicy:     nats.AckExplicitPolicy,
 		AckWait:       time.Minute * 30,
 		MaxAckPending: 1,
-	}, streamName)
+	}
+	for _, opt := range opts {
+		err := opt.configureConsumerConfig(config)
+		if err != nil {
+			return nil, err
+		}
+	}
+	_, err := c.getOrAddConsumer(config, streamName)
 	if err != nil {
 		return nil, err
 	}
