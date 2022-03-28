@@ -31,39 +31,44 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 		for {
 			select {
 			case <-s.quitSignal:
-				s.log.Debugf("Received signal to quit subscription go-routine.")
+				s.log.Infof("Received signal to quit subscription go-routine.")
 				return
 
 			default:
-				msg, err := s.subscription.Fetch()
-				if err != nil {
-					if err == nats.ErrTimeout {
-						s.log.Debugf("No new messages, timeout.")
-					} else {
-						s.log.Errorf("Failed to receive msg: %s", err.Error())
-					}
+				s.fetchMessages(handler)
 
-					continue
-				}
-
-				s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
-
-				if err = handler(msg.Data); err != nil {
-					s.log.Errorf("Message handle error, will be NAKED: %v", err)
-
-					if err := msg.Nak(); err != nil {
-						s.log.Errorf("Nak failed: %v", err)
-					}
-
-					continue
-				}
-
-				if err = msg.Ack(); err != nil {
-					s.log.Errorf("Ack failed: %v", err)
-				}
 			}
 		}
 	}()
+}
+
+func (s *subscriber) fetchMessages(handler MsgHandler) {
+	msg, err := s.subscription.Fetch()
+	if err != nil {
+		if err == nats.ErrTimeout {
+			s.log.Debugf("No new messages, timeout.")
+		} else {
+			s.log.Errorf("Failed to receive msg: %s", err.Error())
+		}
+
+		return
+	}
+
+	s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
+
+	if err = handler(msg.Data); err != nil {
+		s.log.Errorf("Message handle error, will be NAKED: %v", err)
+
+		if err := msg.Nak(); err != nil {
+			s.log.Errorf("Nak failed: %v", err)
+		}
+
+		return
+	}
+
+	if err = msg.Ack(); err != nil {
+		s.log.Errorf("Ack failed: %v", err)
+	}
 }
 
 // Unsubscribe unsubscribes to the related consumer.

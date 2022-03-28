@@ -58,20 +58,21 @@ func (c *connection) NewSubscriber(consumerName string, subject string) (Subscri
 
 // Close closes the nats connection and drains all messages.
 func (c *connection) Close() error {
-	c.log.Debugf("Draining and closing open subscriptions..")
+	c.log.Infof("Draining and closing open subscriptions..")
 	for _, sub := range c.subscribers {
 		if err := sub.subscription.Drain(); err != nil {
 			return err
 		}
 		sub.quitSignal <- true
 		close(sub.quitSignal)
-	}
-	c.log.Debugf("Closed all open subscriptions.")
 
-	c.log.Debugf("Closing NATS connection...")
+	}
+	c.log.Infof("Closed all open subscriptions.")
+
+	c.log.Infof("Closing NATS connection...")
 	if err := c.nats.Drain(); err != nil {
 		return fmt.Errorf("NATS connection could not be closed: %w", err)
 	}
-	c.log.Debugf("Closed NATS connection.")
+	c.log.Infof("Closed NATS connection.")
 	return nil
 }
