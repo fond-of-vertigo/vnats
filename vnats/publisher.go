@@ -6,6 +6,7 @@ import (
 	"github.com/fond-of/logging.go/logger"
 	"github.com/nats-io/nats.go"
 	"strings"
+	"time"
 )
 
 type Publisher interface {
@@ -65,6 +66,7 @@ func makePublisher(conn *connection, streamName string, logger logger.Logger) (*
 		Storage:    defaultStorageType,
 		Replicas:   len(conn.nats.Servers()),
 		Duplicates: defaultDuplicationWindow,
+		MaxAge:     time.Hour * 24 * 7,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("publisher could not be created: %w", err)
