@@ -37,7 +37,7 @@ func (b *testBridge) PublishMsg(msg *nats.Msg, msgID string) error {
 	return nil
 }
 
-func (b *testBridge) CreateSubscription(_ string, _ string) (subscription, error) {
+func (b *testBridge) CreateSubscription(_ string, _ string, _ ...ConOpt) (subscription, error) {
 	return nil, nil
 }
 
