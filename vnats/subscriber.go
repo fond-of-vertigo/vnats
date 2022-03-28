@@ -80,8 +80,8 @@ func (s *subscriber) Unsubscribe() error {
 	return nil
 }
 
-func makeSubscriber(conn *connection, subject string, consumerName string, logger logger.Logger) (*subscriber, error) {
-	sub, err := conn.nats.CreateSubscription(subject, consumerName)
+func makeSubscriber(conn *connection, subject string, consumerName string, logger logger.Logger, opts ...ConOpt) (*subscriber, error) {
+	sub, err := conn.nats.CreateSubscription(subject, consumerName, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("subscriber could not be created: %w", err)
 	}
