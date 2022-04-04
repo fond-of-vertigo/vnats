@@ -13,6 +13,7 @@ type bridge interface {
 	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
 	CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error)
 	Servers() []string
+	DeleteStream(streamName string) error
 	PublishMsg(msg *nats.Msg, msgID string) error
 	Drain() error
 }
@@ -158,6 +159,10 @@ func (c *natsBridge) getOrAddConsumer(streamName string, consumerConfig *nats.Co
 // Servers returns the list of NATS servers
 func (c *natsBridge) Servers() []string {
 	return c.connection.Servers()
+}
+
+func (c *natsBridge) DeleteStream(streamName string) error {
+	return c.jetStreamContext.DeleteStream(streamName)
 }
 
 // Drain will put a connection into a drain state. All subscriptions will

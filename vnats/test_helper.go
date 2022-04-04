@@ -16,6 +16,10 @@ type testBridge struct {
 	wantMessageID  string
 }
 
+func (b *testBridge) DeleteStream(_ string) error {
+	return nil
+}
+
 func (b *testBridge) GetOrAddStream(_ *nats.StreamConfig) (*nats.StreamInfo, error) {
 	return nil, nil
 

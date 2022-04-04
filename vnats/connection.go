@@ -16,6 +16,10 @@ type Connection interface {
 	// NewSubscriber creates a subscriber for the given consumer name and subject.
 	// Consumer will be created if it does not exist.
 	NewSubscriber(consumerName string, subject string, mode SubscriptionMode) (Subscriber, error)
+
+	//
+	//DeleteStream removes a stream with all messages.
+	DeleteStream(streamName string) error
 }
 
 type connection struct {
@@ -54,6 +58,10 @@ func (c *connection) NewSubscriber(consumerName string, subject string, mode Sub
 	}
 	c.subscribers = append(c.subscribers, sub)
 	return sub, nil
+}
+
+func (c *connection) DeleteStream(streamName string) error {
+	return c.nats.DeleteStream(streamName)
 }
 
 // Close closes the nats connection and drains all messages.
