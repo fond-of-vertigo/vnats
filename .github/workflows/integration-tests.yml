@@ -18,7 +18,7 @@ jobs:
       - name: Install Nats Server
         uses: scottf/install-nats-io-server-ubuntu@main
       - name: Run the server
-        run: nats-server -m 8222 -js
+        run: nats-server -m 8222 -js &
       - name: Check out Go client code
         uses: actions/checkout@v2
       - name: Run integration tests
