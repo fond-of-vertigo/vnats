@@ -3,6 +3,7 @@ package vnats
 import (
 	"github.com/fond-of/logging.go/logger"
 	"github.com/nats-io/nats.go"
+	"os"
 	"testing"
 )
 
@@ -11,7 +12,7 @@ const integrationTestStreamName = "IntegrationTests"
 var log = logger.New(logger.LvlDebug)
 
 func makeIntegrationTestConn(t *testing.T) Connection {
-	conn, err := Connect([]string{"127.0.0.1:4222"}, log)
+	conn, err := Connect([]string{os.Getenv("NATS_SERVER_URL")}, log)
 	if err != nil {
 		t.Errorf("NATS connection could not be established: %v", err)
 	}

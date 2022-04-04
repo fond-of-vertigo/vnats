@@ -6,6 +6,8 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  NATS_SERVER_URL: "nats://127.0.0.1:4222"
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
