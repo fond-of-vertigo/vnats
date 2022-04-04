@@ -80,6 +80,9 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 	return streamInfo, nil
 }
 
+// SubscriptionMode defines how the consumer and its subscriber are configured. This mode must be set accordingly
+// to the use-case. If the order of messages should be strictly ordered, SingleInstanceMessagesInOrder should be used.
+// If the message order is not important, but horizontal scaling is, use MultipleInstances.
 type SubscriptionMode int
 
 const (
