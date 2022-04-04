@@ -3,6 +3,7 @@ package vnats
 import (
 	"fmt"
 	"github.com/fond-of/logging.go/logger"
+	"github.com/google/go-cmp/cmp"
 	"github.com/nats-io/nats.go"
 	"strings"
 	"time"
@@ -137,12 +138,15 @@ func (c *natsBridge) getOrAddConsumer(consumerConfig *nats.ConsumerConfig, strea
 			return nil, fmt.Errorf("consumer %s could not be added to stream %s: %w", consumerConfig.Durable, streamName, err)
 		}
 		c.log.Debugf("Consumer %s for stream %s created at %s. %d messages pending, #%d ack pending", ci.Name, streamName, ci.Created, ci.NumPending, ci.NumAckPending)
+
 	} else if ci.Config.MaxAckPending != consumerConfig.MaxAckPending || ci.Config.AckWait != consumerConfig.AckWait {
+		c.log.Debugf("Config of consumer %s will be updated: %s", consumerConfig.Durable, cmp.Diff(ci.Config, consumerConfig))
 		ci, err = c.jetStreamContext.UpdateConsumer(streamName, consumerConfig)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return ci, nil
 }
 
