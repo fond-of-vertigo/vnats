@@ -1,0 +1,25 @@
+name: Ubuntu Go Client Tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ubuntu-go-client-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup GO
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17.8
+          check-latest: true
+      - name: Install Nats Server
+        uses: scottf/install-nats-io-server-ubuntu@main
+      - name: Run the server
+        run: nats-server -m 8222 -js
+      - name: Check out Go client code
+        uses: actions/checkout@v2
+      - name: Run integration tests
+        run: go test -v ./... # use go test -v -short for skipping integration tests
