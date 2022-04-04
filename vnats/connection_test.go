@@ -51,9 +51,14 @@ func TestConnection_NewSubscriber(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	conn := makeIntegrationTestConn(t)
 	for _, test := range newSubscriberTestCases {
-		_, err := conn.NewSubscriber(test.consumerName, test.subject, test.mode)
+		conn := makeIntegrationTestConn(t)
+
+		_, err := conn.NewPublisher(integrationTestStreamName)
+		if err != nil {
+			t.Errorf("Publisher could not be created: %v", err)
+		}
+		_, err = conn.NewSubscriber(test.consumerName, test.subject, test.mode)
 		if err != nil {
 			t.Errorf("Subscriber could not be created: %v", err)
 		}
