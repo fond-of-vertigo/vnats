@@ -115,7 +115,7 @@ func main() {
 
 	// Create Pull-Subscriber bound to consumer `EXAMPLE_CONSUMER` 
 	// and the subject `PRODUCTS.PRICES`
-	sub, err := conn.NewSubscriber("EXAMPLE_CONSUMER", "PRODUCTS.PRICES")
+	sub, err := conn.NewSubscriber("EXAMPLE_CONSUMER", "PRODUCTS.PRICES", vnats.MultipleInstances)
 	if err != nil {
 		log.Errorf("Could not create subscriber: %v", err)
 	}
