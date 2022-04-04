@@ -103,10 +103,8 @@ func (a MaxAckPending) configureConsumerConfig(c *nats.ConsumerConfig) error {
 func (c *natsBridge) CreateSubscription(subject string, consumerName string, opts ...ConOpt) (subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	config := &nats.ConsumerConfig{
-		Durable:       consumerName,
-		AckPolicy:     nats.AckExplicitPolicy,
-		AckWait:       time.Minute * 30,
-		MaxAckPending: 1,
+		Durable:   consumerName,
+		AckPolicy: nats.AckExplicitPolicy,
 	}
 	for _, opt := range opts {
 		err := opt.configureConsumerConfig(config)
