@@ -3,7 +3,6 @@ package vnats
 import (
 	"fmt"
 	"github.com/fond-of/logging.go/logger"
-	"github.com/google/go-cmp/cmp"
 	"github.com/nats-io/nats.go"
 	"strings"
 	"time"
@@ -12,7 +11,7 @@ import (
 // bridge is required to use a mock for the nats functions in unit tests
 type bridge interface {
 	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
-	CreateSubscription(subject string, consumerName string, opts ...ConOpt) (subscription, error)
+	CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error)
 	Servers() []string
 	PublishMsg(msg *nats.Msg, msgID string) error
 	Drain() error
@@ -81,40 +80,32 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 	return streamInfo, nil
 }
 
-type ConOpt interface {
-	configureConsumerConfig(c *nats.ConsumerConfig) error
-}
+type SubscriptionMode int
 
-type AckWait time.Duration
+const (
+	// MultipleInstances mode (default) enables multiple subscriber of one consumer for horizontal scaling.
+	// The message order cannot be guaranteed when messages get NAKed/ MsgHandler for message returns error.
+	MultipleInstances SubscriptionMode = iota
 
-func (a AckWait) configureConsumerConfig(c *nats.ConsumerConfig) error {
-	c.AckWait = time.Duration(a)
-	return nil
-}
-
-type MaxAckPending int
-
-func (a MaxAckPending) configureConsumerConfig(c *nats.ConsumerConfig) error {
-	c.MaxAckPending = int(a)
-	return nil
-}
+	// SingleInstanceMessagesInOrder mode enables strict order of messages. If messages get NAKed/ MsgHandler for
+	// message returns error, the subscriber of consumer will retry the failed message until resolved. This blocks the
+	// entire consumer, so that horizontal scaling is not effectively possible.
+	SingleInstanceMessagesInOrder
+)
 
 // CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
 // The first token of a subject will be interpreted as the streamName.
-func (c *natsBridge) CreateSubscription(subject string, consumerName string, opts ...ConOpt) (subscription, error) {
+func (c *natsBridge) CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	config := &nats.ConsumerConfig{
 		Durable:   consumerName,
 		AckPolicy: nats.AckExplicitPolicy,
+		AckWait:   time.Second * 30,
 	}
-	for _, opt := range opts {
-		err := opt.configureConsumerConfig(config)
-		if err != nil {
-			return nil, err
-		}
-	}
-	_, err := c.getOrAddConsumer(config, streamName)
-	if err != nil {
+
+	patchConsumerConfig(config, mode)
+
+	if _, err := c.getOrAddConsumer(streamName, config); err != nil {
 		return nil, err
 	}
 
@@ -126,7 +117,18 @@ func (c *natsBridge) CreateSubscription(subject string, consumerName string, opt
 	return &natsSubscription{streamSubscription: sub}, nil
 }
 
-func (c *natsBridge) getOrAddConsumer(consumerConfig *nats.ConsumerConfig, streamName string) (*nats.ConsumerInfo, error) {
+func patchConsumerConfig(config *nats.ConsumerConfig, mode SubscriptionMode) {
+	switch mode {
+	case MultipleInstances:
+		config.MaxAckPending = 0
+	case SingleInstanceMessagesInOrder:
+		config.MaxAckPending = 1
+	default:
+		config.MaxAckPending = 0
+	}
+}
+
+func (c *natsBridge) getOrAddConsumer(streamName string, consumerConfig *nats.ConsumerConfig) (*nats.ConsumerInfo, error) {
 	ci, err := c.jetStreamContext.ConsumerInfo(streamName, consumerConfig.Durable)
 	if err != nil {
 		if !strings.Contains(err.Error(), "consumer not found") {
@@ -137,14 +139,14 @@ func (c *natsBridge) getOrAddConsumer(consumerConfig *nats.ConsumerConfig, strea
 		if err != nil {
 			return nil, fmt.Errorf("consumer %s could not be added to stream %s: %w", consumerConfig.Durable, streamName, err)
 		}
-		c.log.Debugf("Consumer %s for stream %s created at %s. %d messages pending, #%d ack pending", ci.Name, streamName, ci.Created, ci.NumPending, ci.NumAckPending)
 
-	} else if ci.Config.MaxAckPending != consumerConfig.MaxAckPending || ci.Config.AckWait != consumerConfig.AckWait {
-		c.log.Debugf("Config of consumer %s will be updated: %s", consumerConfig.Durable, cmp.Diff(ci.Config, consumerConfig))
-		ci, err = c.jetStreamContext.UpdateConsumer(streamName, consumerConfig)
-		if err != nil {
-			return nil, err
-		}
+		c.log.Debugf("Consumer %s for stream %s created at %s. %d messages pending, #%d ack pending", ci.Name, streamName, ci.Created, ci.NumPending, ci.NumAckPending)
+		return ci, nil
+	}
+
+	if ci.Config.MaxAckPending != consumerConfig.MaxAckPending {
+		return nil, fmt.Errorf("consumer %s SubscriptionMode has changed. "+
+			"Please use the existing SubscriptionMode=%v or delete consumer", consumerConfig.Durable, SubscriptionMode(ci.Config.MaxAckPending))
 	}
 
 	return ci, nil

@@ -15,7 +15,7 @@ type Connection interface {
 
 	// NewSubscriber creates a subscriber for the given consumer name and subject.
 	// Consumer will be created if it does not exist.
-	NewSubscriber(consumerName string, subject string, opts ...ConOpt) (Subscriber, error)
+	NewSubscriber(consumerName string, subject string, mode SubscriptionMode) (Subscriber, error)
 }
 
 type connection struct {
@@ -47,8 +47,8 @@ func (c *connection) NewPublisher(streamName string) (Publisher, error) {
 
 // NewSubscriber creates a subscriber for the given consumer name and subject.
 // Consumer will be created if it does not exist.
-func (c *connection) NewSubscriber(consumerName string, subject string, opts ...ConOpt) (Subscriber, error) {
-	sub, err := makeSubscriber(c, subject, consumerName, c.log, opts...)
+func (c *connection) NewSubscriber(consumerName string, subject string, mode SubscriptionMode) (Subscriber, error) {
+	sub, err := makeSubscriber(c, subject, consumerName, c.log, mode)
 	if err != nil {
 		return nil, err
 	}

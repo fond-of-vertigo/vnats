@@ -66,7 +66,7 @@ func makePublisher(conn *connection, streamName string, logger logger.Logger) (*
 		Storage:    defaultStorageType,
 		Replicas:   len(conn.nats.Servers()),
 		Duplicates: defaultDuplicationWindow,
-		MaxAge:     time.Hour * 24 * 7,
+		MaxAge:     time.Hour * 24 * 30,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("publisher could not be created: %w", err)
