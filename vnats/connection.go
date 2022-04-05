@@ -24,7 +24,7 @@ type connection struct {
 	subscribers []*subscriber
 }
 
-// Connect connects to a NATS server/cluster
+// Connect returns Connection to a NATS server/ cluster and enables Publisher and Subscriber creation.
 func Connect(servers []string, logger logger.Logger) (Connection, error) {
 	conn := &connection{
 		log: logger,
@@ -39,14 +39,10 @@ func Connect(servers []string, logger logger.Logger) (Connection, error) {
 	return conn, nil
 }
 
-// NewPublisher creates a publisher for the given streamName.
-// Stream will be created if it does not exist.
 func (c *connection) NewPublisher(streamName string) (Publisher, error) {
 	return makePublisher(c, streamName, c.log)
 }
 
-// NewSubscriber creates a subscriber for the given consumer name and subject.
-// Consumer will be created if it does not exist.
 func (c *connection) NewSubscriber(consumerName string, subject string, mode SubscriptionMode) (Subscriber, error) {
 	sub, err := makeSubscriber(c, subject, consumerName, c.log, mode)
 	if err != nil {
@@ -56,7 +52,7 @@ func (c *connection) NewSubscriber(consumerName string, subject string, mode Sub
 	return sub, nil
 }
 
-// Close closes the nats connection and drains all messages.
+// Close closes the NATS connection and drains all subscriptions.
 func (c *connection) Close() error {
 	c.log.Infof("Draining and closing open subscriptions..")
 	for _, sub := range c.subscribers {

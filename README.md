@@ -6,6 +6,7 @@ Middleware.
 ## Usage
 
 For using vnats you will need to
+
 1. Establish connection to NATS
 2. Create Publisher/ Subscriber
 3. Profit!
@@ -55,31 +56,31 @@ func main() {
 		Price:       "12,34",
 		LastUpdated: time.Now(),
 	}
-	
+
 	// Publish message to stream `PRODUCTS.PRICES` with a context bound, unique message ID 
 	// msgID is used for deduplication
 	msgID := fmt.Sprintf("%s-%s", p.Name, p.LastUpdated)
 	if err := pub.Publish("PRODUCTS.PRICES", p, msgID); err != nil {
 		log.Errorf("Could not publish %v: %v", p, err)
 	}
-    
+
 	// Close NATS connection
 	if err := conn.Close(); err != nil {
 		log.Errorf("NATS connection could not be closed: %v", err)
 	}
 }
 ```
+
 ---
 
 ### Subscriber
 
-We use a pull-based subscriber by default, which scales horizontally.
-The subscriber is asynchronous and pulls continuously for new messages.
-A message handler is needed to process each message. 
-The message will be passed as a slice of bytes `[]byte`. 
+We use a pull-based subscriber by default, which scales horizontally. The subscriber is asynchronous and pulls
+continuously for new messages. A message handler is needed to process each message. The message will be passed as a
+slice of bytes `[]byte`.
 
-**Important**: The `MsgHandler` **MUST** finish its task under 30 minutes. 
-If this is exceeded, the message will be redelivered and can result in nasty bugs.
+**Important**: The `MsgHandler` **MUST** finish its task under 30 seconds. Longer tasks must be only triggered and
+executed asynchronously.
 
 #### Example
 
@@ -119,13 +120,13 @@ func main() {
 	if err != nil {
 		log.Errorf("Could not create subscriber: %v", err)
 	}
-    
+
 	// Subscribe and specify messageHandler
 	sub.Subscribe(msgHandler)
-    
+
 	// Wait for stop signal (e.g. ctrl-C)
 	waitForStopSignal()
-	
+
 	// Unsubscribe to all open subscriptions and close NATS connection
 	if err := conn.Close(); err != nil {
 		log.Errorf("NATS connection could not be closed: %v", err)
@@ -135,11 +136,11 @@ func main() {
 
 func msgHandler(data []byte) error {
 	var p Product
-	
+
 	if err := json.Unmarshal(data, &p); err != nil {
 		return err
 	}
-	
+
 	log.Debugf("Received product: %v", p)
 	return nil
 }

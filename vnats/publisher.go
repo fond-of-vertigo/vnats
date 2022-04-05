@@ -35,9 +35,6 @@ func validateSubject(subject string, streamName string) error {
 	return nil
 }
 
-// Publish sends data to a specified subject to a streamInfo.
-// Each message has a msgID for de-duplication relative to
-// the duplication-time-window of each streamInfo.
 func (p *publisher) Publish(subject string, data interface{}, msgID string) error {
 	if err := validateSubject(subject, p.streamName); err != nil {
 		return err
@@ -49,6 +46,7 @@ func (p *publisher) Publish(subject string, data interface{}, msgID string) erro
 	}
 
 	p.log.Debugf("Publish message with msg-ID: %s @ %s\n", msgID, subject)
+
 	if err = p.conn.nats.PublishMsg(&nats.Msg{
 		Subject: subject, Data: dataBytes}, msgID); err != nil {
 		return fmt.Errorf("message with msg-ID: %s @ %s could not be published: %w", msgID, subject, err)
@@ -68,6 +66,7 @@ func makePublisher(conn *connection, streamName string, logger logger.Logger) (*
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     time.Hour * 24 * 30,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("publisher could not be created: %w", err)
 	}

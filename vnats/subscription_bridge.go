@@ -16,8 +16,8 @@ func (s *natsSubscription) Fetch() (*nats.Msg, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg := messages[0]
-	return msg, nil
+
+	return messages[0], nil
 }
 
 func (s *natsSubscription) Unsubscribe() error {

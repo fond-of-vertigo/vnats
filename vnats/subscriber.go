@@ -8,6 +8,7 @@ import (
 
 type Subscriber interface {
 	// Subscribe expects a message handler which will be called whenever a new message is received.
+	// The MsgHandler MUST finish its task in under 30 seconds.
 	Subscribe(handler MsgHandler)
 	// Unsubscribe unsubscribes to the related consumer.
 	Unsubscribe() error
@@ -24,8 +25,6 @@ type subscriber struct {
 	quitSignal   chan bool
 }
 
-// Subscribe expects a message handler which will be called whenever a new message is received.
-// The MsgHandler MUST finish its task in under 30 minutes.
 func (s *subscriber) Subscribe(handler MsgHandler) {
 	go func() {
 		for {
@@ -33,7 +32,6 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 			case <-s.quitSignal:
 				s.log.Infof("Received signal to quit subscription go-routine.")
 				return
-
 			default:
 				s.fetchMessages(handler)
 
@@ -71,12 +69,12 @@ func (s *subscriber) fetchMessages(handler MsgHandler) {
 	}
 }
 
-// Unsubscribe unsubscribes to the related consumer.
 func (s *subscriber) Unsubscribe() error {
 	if err := s.subscription.Unsubscribe(); err != nil {
 		return err
 	}
 	s.log.Debugf("Unsubscribed to consumer %s", s.consumerName)
+
 	return nil
 }
 
@@ -93,5 +91,6 @@ func makeSubscriber(conn *connection, subject string, consumerName string, logge
 		consumerName: consumerName,
 		quitSignal:   make(chan bool),
 	}
+
 	return p, nil
 }

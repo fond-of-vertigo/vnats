@@ -5,15 +5,31 @@ import (
 	"github.com/fond-of/logging.go/logger"
 	"github.com/nats-io/nats.go"
 	"strings"
-	"time"
 )
 
 // bridge is required to use a mock for the nats functions in unit tests
 type bridge interface {
+	// GetOrAddStream returns a *nats.StreamInfo and for the given streamInfo name.
+	// It adds a new streamInfo if it does not exist.
 	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
+
+	// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
+	// The first token of a subject will be interpreted as the streamName.
 	CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error)
+
+	// Servers returns the list of NATS servers.
 	Servers() []string
+
+	// PublishMsg publishes a message with a context-dependent msgID to a subject.
 	PublishMsg(msg *nats.Msg, msgID string) error
+
+	// Drain will put a connection into a drain state. All subscriptions will
+	// immediately be put into a drain state. Upon completion, the publishers
+	// will be drained and can not publish any additional messages. Upon draining
+	// of the publishers, the connection will be closed. Use the ClosedCB()
+	// option to know when the connection has moved from draining to closed.
+	//
+	// See note in subscription.Drain for JetStream subscriptions.
 	Drain() error
 }
 
@@ -23,7 +39,6 @@ type natsBridge struct {
 	log              logger.Logger
 }
 
-// makeNATSBridge returns a natsBridge connection struct to communicate with NATS server(s).
 func makeNATSBridge(servers []string, log logger.Logger) (bridge, error) {
 	nb := &natsBridge{
 		log: log,
@@ -34,13 +49,13 @@ func makeNATSBridge(servers []string, log logger.Logger) (bridge, error) {
 
 	nb.connection, err = nats.Connect(url,
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
-			log.Errorf("Got disconnected: %q\n", err)
+			log.Errorf("Got disconnected: %v\n", err)
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
 			log.Errorf("Got reconnected to %v!\n", nc.ConnectedUrl())
 		}),
 		nats.ClosedHandler(func(nc *nats.Conn) {
-			log.Errorf("Connection closed: %q\n", nc.LastError())
+			log.Errorf("Connection closed: %v\n", nc.LastError())
 		}))
 	if err != nil {
 		return nil, fmt.Errorf("could not make NATS connection to %s: %w", url, err)
@@ -54,14 +69,11 @@ func makeNATSBridge(servers []string, log logger.Logger) (bridge, error) {
 	return nb, nil
 }
 
-// PublishMsg publishes a Msg to JetStream.
 func (c *natsBridge) PublishMsg(msg *nats.Msg, msgID string) error {
 	_, err := c.jetStreamContext.PublishMsg(msg, nats.MsgId(msgID))
 	return err
 }
 
-// GetOrAddStream returns a *nats.StreamInfo and for the given streamInfo name.
-// It adds a new streamInfo if it does not exist.
 func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error) {
 	streamInfo, err := c.jetStreamContext.StreamInfo(streamConfig.Name)
 	if err != nil {
@@ -96,14 +108,12 @@ const (
 	SingleInstanceMessagesInOrder
 )
 
-// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
-// The first token of a subject will be interpreted as the streamName.
 func (c *natsBridge) CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	config := &nats.ConsumerConfig{
 		Durable:   consumerName,
 		AckPolicy: nats.AckExplicitPolicy,
-		AckWait:   time.Second * 30,
+		AckWait:   defaultAckWait,
 	}
 
 	patchConsumerConfig(config, mode)
@@ -155,18 +165,10 @@ func (c *natsBridge) getOrAddConsumer(streamName string, consumerConfig *nats.Co
 	return ci, nil
 }
 
-// Servers returns the list of NATS servers
 func (c *natsBridge) Servers() []string {
 	return c.connection.Servers()
 }
 
-// Drain will put a connection into a drain state. All subscriptions will
-// immediately be put into a drain state. Upon completion, the publishers
-// will be drained and can not publish any additional messages. Upon draining
-// of the publishers, the connection will be closed. Use the ClosedCB()
-// option to know when the connection has moved from draining to closed.
-//
-// See note in subscription.Drain for JetStream subscriptions.
 func (c *natsBridge) Drain() error {
 	return c.connection.Drain()
 }
