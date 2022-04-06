@@ -23,5 +23,5 @@ jobs:
         run: nats-server -m 8222 -js &
       - name: Check out Go client code
         uses: actions/checkout@v2
-      - name: Run integration tests
-        run: go test -v ./... # use go test -v -short for skipping integration tests
+      - name: Run unit and integration tests
+        run: make test-all
