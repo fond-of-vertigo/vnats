@@ -1,6 +1,7 @@
 package vnats
 
 import (
+	"errors"
 	"fmt"
 	"github.com/fond-of/logging.go/logger"
 	"github.com/nats-io/nats.go"
@@ -9,23 +10,32 @@ import (
 type Subscriber interface {
 	// Subscribe expects a message handler which will be called whenever a new message is received.
 	// The MsgHandler MUST finish its task in under 30 seconds.
-	Subscribe(handler MsgHandler)
+	Subscribe(handler MsgHandler) error
+
 	// Unsubscribe unsubscribes to the related consumer.
 	Unsubscribe() error
 }
-
-// MsgHandler returns the message as a slice of bytes and must be manually unmarshalled to the specific interface.
-type MsgHandler func(data []byte) error
 
 type subscriber struct {
 	conn         *connection
 	subscription subscription
 	log          logger.Logger
 	consumerName string
+	encoding     MsgEncoding
+	handler      *msgHandler
 	quitSignal   chan bool
 }
 
-func (s *subscriber) Subscribe(handler MsgHandler) {
+func (s *subscriber) Subscribe(handler MsgHandler) (err error) {
+	if s.handler != nil {
+		return fmt.Errorf("handler is already set, don't call Subscribe() multiple times")
+	}
+
+	s.handler, err = makeMsgHandler(s.encoding, handler)
+	if err != nil {
+		return err
+	}
+
 	go func() {
 		for {
 			select {
@@ -33,18 +43,19 @@ func (s *subscriber) Subscribe(handler MsgHandler) {
 				s.log.Infof("Received signal to quit subscription go-routine.")
 				return
 			default:
-				s.fetchMessages(handler)
-
+				s.fetchMessages()
 			}
 		}
 	}()
+
+	return nil
 }
 
-func (s *subscriber) fetchMessages(handler MsgHandler) {
+func (s *subscriber) fetchMessages() {
 	msg, err := s.subscription.Fetch()
 	if err != nil {
 		if err == nats.ErrTimeout {
-			s.log.Debugf("No new messages, timeout.")
+			s.log.Debugf("No new messages, timeout")
 		} else {
 			s.log.Errorf("Failed to receive msg: %s", err.Error())
 		}
@@ -52,20 +63,26 @@ func (s *subscriber) fetchMessages(handler MsgHandler) {
 		return
 	}
 
-	s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
+	if s.log.IsDebugEnabled() {
+		s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
+	}
 
-	if err = handler(msg.Data); err != nil {
-		s.log.Errorf("Message handle error, will be NAKED: %v", err)
+	err = s.handler.handle(msg)
+	if err != nil {
+		if errors.Is(err, ErrDecodePayload) {
+			// Do something special with unmarshal errors?
+		}
 
+		s.log.Errorf("Message handle error, will be NAKed: %s", err)
 		if err := msg.Nak(); err != nil {
-			s.log.Errorf("Nak failed: %v", err)
+			s.log.Errorf("msg.Nak() failed: %s", err)
 		}
 
 		return
 	}
 
 	if err = msg.Ack(); err != nil {
-		s.log.Errorf("Ack failed: %v", err)
+		s.log.Errorf("msg.Ack() failed: %s", err)
 	}
 }
 
@@ -73,12 +90,14 @@ func (s *subscriber) Unsubscribe() error {
 	if err := s.subscription.Unsubscribe(); err != nil {
 		return err
 	}
+
+	s.handler = nil
 	s.log.Debugf("Unsubscribed to consumer %s", s.consumerName)
 
 	return nil
 }
 
-func makeSubscriber(conn *connection, subject string, consumerName string, logger logger.Logger, mode SubscriptionMode) (*subscriber, error) {
+func makeSubscriber(conn *connection, subject string, consumerName string, encoding MsgEncoding, mode SubscriptionMode, logger logger.Logger) (*subscriber, error) {
 	sub, err := conn.nats.CreateSubscription(subject, consumerName, mode)
 	if err != nil {
 		return nil, fmt.Errorf("subscriber could not be created: %w", err)
@@ -89,6 +108,7 @@ func makeSubscriber(conn *connection, subject string, consumerName string, logge
 		subscription: sub,
 		log:          logger,
 		consumerName: consumerName,
+		encoding:     encoding,
 		quitSignal:   make(chan bool),
 	}
 

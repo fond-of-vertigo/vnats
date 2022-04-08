@@ -108,7 +108,7 @@ func Test_publisher_Publish(t *testing.T) {
 				log:        testLogger,
 				streamName: tt.args.streamName,
 			}
-			err := pub.Publish(tt.args.subject, tt.args.data, tt.args.msgId)
+			err := pub.Publish(tt.args.subject, NoReply, tt.args.msgId, tt.args.data)
 			if ((err != nil) != tt.wantErr) && ((marshalErr != nil) != tt.wantErr) {
 				var foundErr error
 				if err != nil {
@@ -128,6 +128,7 @@ func Test_makePublisher(t *testing.T) {
 	type args struct {
 		conn       *connection
 		streamName string
+		encoding   MsgEncoding
 		logger     logger.Logger
 	}
 	natsTestBridge := makeTestNATSBridge("PRODUCTS", 1, nil, "test")
@@ -199,7 +200,7 @@ func Test_makePublisher(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := makePublisher(tt.args.conn, tt.args.streamName, tt.args.logger)
+			got, err := makePublisher(tt.args.conn, tt.args.streamName, tt.args.encoding, tt.args.logger)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("makePublisher() error = %v, wantErr %v", err, tt.wantErr)
 				return

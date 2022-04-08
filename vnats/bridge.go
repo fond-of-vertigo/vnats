@@ -92,22 +92,6 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 	return streamInfo, nil
 }
 
-// SubscriptionMode defines how the consumer and its subscriber are configured. This mode must be set accordingly
-// to the use-case. If the order of messages should be strictly ordered, SingleInstanceMessagesInOrder should be used.
-// If the message order is not important, but horizontal scaling is, use MultipleInstances.
-type SubscriptionMode int
-
-const (
-	// MultipleInstances mode (default) enables multiple subscriber of one consumer for horizontal scaling.
-	// The message order cannot be guaranteed when messages get NAKed/ MsgHandler for message returns error.
-	MultipleInstances SubscriptionMode = iota
-
-	// SingleInstanceMessagesInOrder mode enables strict order of messages. If messages get NAKed/ MsgHandler for
-	// message returns error, the subscriber of consumer will retry the failed message until resolved. This blocks the
-	// entire consumer, so that horizontal scaling is not effectively possible.
-	SingleInstanceMessagesInOrder
-)
-
 func (c *natsBridge) CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	config := &nats.ConsumerConfig{
@@ -132,9 +116,9 @@ func (c *natsBridge) CreateSubscription(subject string, consumerName string, mod
 
 func patchConsumerConfig(config *nats.ConsumerConfig, mode SubscriptionMode) {
 	switch mode {
-	case MultipleInstances:
+	case MultipleSubscribersAllowed:
 		config.MaxAckPending = 0
-	case SingleInstanceMessagesInOrder:
+	case SingleSubscriberStrictMessageOrder:
 		config.MaxAckPending = 1
 	default:
 		config.MaxAckPending = 0
