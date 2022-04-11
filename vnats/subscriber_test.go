@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type subscribeStringsConfig struct {
@@ -76,5 +77,52 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 			}
 		}
 
+	}
+}
+
+func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []string) error {
+	for _, expectedMsg := range expectedMessages {
+		for idx, foundMsg := range receivedMessages {
+			if expectedMsg == foundMsg {
+				receivedMessages[idx] = receivedMessages[len(receivedMessages)-1]
+				receivedMessages = receivedMessages[:len(receivedMessages)-1]
+			}
+		}
+
+	}
+	if !reflect.DeepEqual(receivedMessages, []string{}) {
+		return fmt.Errorf("more messages were received than published. Additional msgs: %v", receivedMessages)
+	}
+	return nil
+}
+
+func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
+	var receivedMessages []string
+	done := make(chan bool)
+
+	handler := func(msg string) error {
+		receivedMessages = append(receivedMessages, msg)
+		if reflect.DeepEqual(receivedMessages, expectedMessages) {
+			done <- true
+		}
+		return nil
+	}
+
+	if err := waitFinishMsgHandler(sub, handler, done); err != nil {
+		return nil, err
+	}
+	return receivedMessages, nil
+}
+
+func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) error {
+	timeout := time.Millisecond * 200
+	if err := sub.Subscribe(handler); err != nil {
+		return err
+	}
+	select {
+	case <-done:
+		return nil
+	case <-time.After(timeout):
+		return nil
 	}
 }
