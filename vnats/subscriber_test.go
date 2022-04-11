@@ -24,6 +24,9 @@ var subscriberTestCases = []subscribeStringsConfig{
 }
 
 func TestSubscriber_Subscribe_Strings(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	subject := integrationTestStreamName + ".PubSubTest.string"
 
 	for _, test := range subscriberTestCases {
@@ -70,6 +73,9 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 }
 
 func TestSubscriber_Subscribe_Struct(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
 	subject := integrationTestStreamName + ".PubSubTest.struct"
 
 	for _, test := range subscriberTestCases {
