@@ -13,6 +13,8 @@ type subscribeStringsConfig struct {
 }
 
 var subscriberTestCases = []subscribeStringsConfig{
+	{[]string{}, []string{}, MultipleSubscribersAllowed, false},
+	{[]string{}, []string{}, SingleSubscriberStrictMessageOrder, false},
 	{[]string{"hello", "world"}, []string{"hello", "world"}, SingleSubscriberStrictMessageOrder, false},
 	{[]string{"hello", "world"}, []string{"world", "hello"}, SingleSubscriberStrictMessageOrder, true},
 	{[]string{"hello", "world"}, []string{"hello", "world"}, MultipleSubscribersAllowed, false},
@@ -53,6 +55,9 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 			}
 
 		case SingleSubscriberStrictMessageOrder:
+			if len(test.expectedMessages) == 0 && len(receivedMessages) == 0 {
+				continue
+			}
 			equal := reflect.DeepEqual(receivedMessages, test.expectedMessages)
 			if !equal && !test.wantErr {
 				t.Errorf("Got %v, expected %v\n", receivedMessages, test.expectedMessages)

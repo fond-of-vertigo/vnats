@@ -85,6 +85,9 @@ func makeIntegrationTestConn(t *testing.T, streamName string, log logger.Logger)
 }
 
 func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []string) error {
+	if len(expectedMessages) == 0 && len(receivedMessages) == 0 {
+		return nil
+	}
 	for _, expectedMsg := range expectedMessages {
 		for idx, foundMsg := range receivedMessages {
 			if expectedMsg == foundMsg {
@@ -100,15 +103,14 @@ func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []st
 	return nil
 }
 func publishStringMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
+	pub, err := conn.NewPublisher(NewPublisherArgs{
+		StreamName: integrationTestStreamName,
+		Encoding:   EncJSON,
+	})
+	if err != nil {
+		t.Error(err)
+	}
 	for idx, msg := range publishMessages {
-		pub, err := conn.NewPublisher(NewPublisherArgs{
-			StreamName: integrationTestStreamName,
-			Encoding:   EncJSON,
-		})
-		if err != nil {
-			t.Error(err)
-		}
-
 		if err := pub.Publish(PublishArgs{
 			Subject: subject,
 			MsgID:   fmt.Sprintf("msg-%d", idx),
