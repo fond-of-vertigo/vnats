@@ -104,6 +104,6 @@ func retrieveStringMessages(conn Connection, subject string, mode SubscriptionMo
 	if err := sub.Subscribe(handler); err != nil {
 		return nil, err
 	}
-	time.Sleep(time.Second) // sleep to retrieve all messages
+	time.Sleep(time.Millisecond * 100) // sleep and block to retrieve all messages
 	return receivedMessages, nil
 }
