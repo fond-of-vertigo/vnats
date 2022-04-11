@@ -9,7 +9,8 @@ import (
 type Subscriber interface {
 	// Subscribe expects a message handler which will be called whenever a new message is received.
 	Subscribe(handler MsgHandler)
-	// Unsubscribe unsubscribes to the related consumer.
+
+	// Unsubscribe unsubscribes MsgHandler from related consumer.
 	Unsubscribe() error
 }
 

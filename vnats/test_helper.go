@@ -5,6 +5,8 @@ import (
 	"github.com/fond-of/logging.go/logger"
 	"github.com/google/go-cmp/cmp"
 	"github.com/nats-io/nats.go"
+	"os"
+	"testing"
 )
 
 var testLogger = logger.New(logger.LvlDebug)
@@ -64,4 +66,16 @@ func makeTestConnection(streamName string, currentSequenceNumber uint64, wantDat
 		log:         testLogger,
 		subscribers: wantSubs,
 	}
+}
+
+func makeIntegrationTestConn(t *testing.T, streamName string, log logger.Logger) Connection {
+	conn, err := Connect([]string{os.Getenv("NATS_SERVER_URL")}, log)
+	if err != nil {
+		t.Errorf("NATS connection could not be established: %v", err)
+	}
+
+	if err := conn.DeleteStream(streamName); err != nil && err != nats.ErrStreamNotFound {
+		t.Errorf("Could not delete stream %s: %v.", streamName, err)
+	}
+	return conn
 }
