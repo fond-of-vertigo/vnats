@@ -74,10 +74,9 @@ func (s *subscriber) fetchMessages() {
 		}
 
 		s.log.Errorf("Message handle error, will be NAKed: %s", err)
-		if err := msg.Nak(); err != nil {
+		if err := msg.NakWithDelay(defaultNakDelay); err != nil {
 			s.log.Errorf("msg.Nak() failed: %s", err)
 		}
-
 		return
 	}
 
