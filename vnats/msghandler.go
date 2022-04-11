@@ -13,15 +13,15 @@ import (
 //
 // The following callback signatures are supported:
 //
-//	handler := func(o *YourStructType)
-//	handler := func(subject string, o *YourStructType)
-//	handler := func(subject, reply string, o *YourStructType)
+//	handler := func(o *YourStructType) error
+//	handler := func(subject string, o *YourStructType) error
+//	handler := func(subject, reply string, o *YourStructType) error
 //
 // You can also get the raw nats Msg, but this usage is discouraged in production
 // code, as you leave protected vnats paths then. But it may be useful in some
 // edge cases. The callback signature looks like this:
 //
-//	handler := func(msg *nats.Msg)
+//	handler := func(msg *nats.Msg) error
 //
 type MsgHandler interface{}
 
