@@ -29,23 +29,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 
 		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
 
-		for idx, msg := range test.publishMessages {
-			pub, err := conn.NewPublisher(NewPublisherArgs{
-				StreamName: integrationTestStreamName,
-				Encoding:   EncJSON,
-			})
-			if err != nil {
-				t.Error(err)
-			}
-
-			if err := pub.Publish(PublishArgs{
-				Subject: subject,
-				MsgID:   fmt.Sprintf("msg-%d", idx),
-				Data:    msg,
-			}); err != nil {
-				t.Error(err)
-			}
-		}
+		publishStringMessages(t, conn, subject, test.publishMessages)
 
 		sub, err := conn.NewSubscriber(NewSubscriberArgs{
 			ConsumerName: "TestConsumer",
@@ -61,6 +45,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
+
 		switch test.mode {
 		case MultipleSubscribersAllowed:
 			if err := cmpStringSlicesIgnoreOrder(test.expectedMessages, receivedMessages); err != nil && !test.wantErr {
@@ -68,6 +53,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 			} else if test.wantErr && err == nil {
 				t.Error("Should fail, but no error was thrown!")
 			}
+
 		case SingleSubscriberStrictMessageOrder:
 			equal := reflect.DeepEqual(receivedMessages, test.expectedMessages)
 			if !equal && !test.wantErr {
@@ -80,6 +66,26 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 	}
 }
 
+func publishStringMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
+	for idx, msg := range publishMessages {
+		pub, err := conn.NewPublisher(NewPublisherArgs{
+			StreamName: integrationTestStreamName,
+			Encoding:   EncJSON,
+		})
+		if err != nil {
+			t.Error(err)
+		}
+
+		if err := pub.Publish(PublishArgs{
+			Subject: subject,
+			MsgID:   fmt.Sprintf("msg-%d", idx),
+			Data:    msg,
+		}); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
 func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []string) error {
 	for _, expectedMsg := range expectedMessages {
 		for idx, foundMsg := range receivedMessages {
@@ -88,8 +94,8 @@ func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []st
 				receivedMessages = receivedMessages[:len(receivedMessages)-1]
 			}
 		}
-
 	}
+
 	if !reflect.DeepEqual(receivedMessages, []string{}) {
 		return fmt.Errorf("more messages were received than published. Additional msgs: %v", receivedMessages)
 	}
@@ -119,6 +125,7 @@ func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) er
 	if err := sub.Subscribe(handler); err != nil {
 		return err
 	}
+
 	select {
 	case <-done:
 		return nil
