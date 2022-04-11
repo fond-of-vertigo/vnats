@@ -198,3 +198,15 @@ func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) er
 		return nil
 	}
 }
+
+func createSubscriber(t *testing.T, conn Connection, consumerName string, subject string, mode SubscriptionMode) Subscriber {
+	sub, err := conn.NewSubscriber(NewSubscriberArgs{
+		ConsumerName: consumerName,
+		Subject:      subject,
+		Mode:         mode,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	return sub
+}

@@ -1,8 +1,10 @@
 package vnats
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type subscribeStringsConfig struct {
@@ -150,5 +152,59 @@ func TestSubscriber_CallTwice(t *testing.T) {
 	}
 	if err := conn.Close(); err != nil {
 		t.Error(err)
+	}
+}
+
+type restDownConfig struct {
+	mode                    SubscriptionMode
+	minCallFirstMsg         int
+	minCallSecondMsg        int
+	maxCallSecondMsg        int
+	waitUntilCheckCallCount time.Duration
+}
+
+var restDownTestCases = []restDownConfig{
+	{SingleSubscriberStrictMessageOrder, 2, 0, 0, defaultNakDelay * 2},
+	{MultipleSubscribersAllowed, 2, 2, 3, defaultNakDelay * 2},
+}
+
+func TestSubscriberAlwaysFails(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	subject := integrationTestStreamName + ".subscriberAlwaysFails"
+	for _, test := range restDownTestCases {
+		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+		publishStringMessages(t, conn, subject, []string{"hello", "world"})
+		sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, test.mode)
+
+		callCountHello, callCountWorld := 0, 0
+
+		handler := func(msg string) error {
+			switch msg {
+			case "hello":
+				callCountHello += 1
+			case "world":
+				callCountWorld += 1
+			}
+			return fmt.Errorf("REST-Endpoint is down, retry later")
+		}
+
+		if err := sub.Subscribe(handler); err != nil {
+			t.Error(err)
+		}
+
+		time.Sleep(test.waitUntilCheckCallCount)
+
+		if callCountHello < test.minCallFirstMsg {
+			t.Errorf("First message was not retried more than %v in %v.", test.minCallSecondMsg, test.waitUntilCheckCallCount)
+		}
+		if callCountWorld < test.minCallSecondMsg || callCountWorld > test.maxCallSecondMsg {
+			t.Errorf("Second message was not called the correct amount: %v < %v < %v in %v.", test.minCallSecondMsg, callCountWorld, test.maxCallSecondMsg, test.waitUntilCheckCallCount)
+		}
+		if err := conn.Close(); err != nil {
+			t.Error(err)
+		}
 	}
 }
