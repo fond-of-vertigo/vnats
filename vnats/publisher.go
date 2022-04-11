@@ -10,15 +10,8 @@ import (
 
 type Publisher interface {
 	// Publish sends the message (data) to the given subject.
-	// Optionally you can set a reply subject, if not required use the NoReply const.
-	// Each message has a msgID for de-duplication relative to
-	// the duplication-time-window of each stream.
-	// The msgID must be unique for the content, like a hash value.
-	// So the same data must have the msgID, no matter how often you send it.
-	Publish(subject, reply, msgID string, data interface{}) error
+	Publish(args PublishArgs) error
 }
-
-const NoReply = ""
 
 type publisher struct {
 	conn       *connection
@@ -27,36 +20,58 @@ type publisher struct {
 	log        logger.Logger
 }
 
-func (p *publisher) Publish(subject, reply, msgID string, data interface{}) error {
-	if err := validateSubject(subject, p.streamName); err != nil {
+// PublishArgs contains the arguments publishing a new message.
+// By using a struct we are open for adding new arguments in the future
+// and the caller can omit arguments where the default value is OK.
+type PublishArgs struct {
+	// Subject is the destination subject name, like "PRODUCTS.new"
+	Subject string
+
+	// Reply contains the subject name where a reply should be sent to.
+	// This value is optional.
+	Reply string
+
+	// MsgID must be unique value for the content, like a hash value.
+	// So the same data must have the MsgID, no matter how often you send it.
+	MsgID string
+
+	// Data contains the data to send. Depends on the encoding how this value
+	// is treated. If JSON encoding is enabled, this can be a struct which is the
+	// marshalled to JSON automatically.
+	// If raw encoding is used, this must be a byte array or a string.
+	Data interface{}
+}
+
+func (p *publisher) Publish(args PublishArgs) error {
+	if err := validateSubject(args.Subject, p.streamName); err != nil {
 		return err
 	}
 
-	dataBytes, err := encodePayload(p.encoding, data)
+	dataBytes, err := encodePayload(p.encoding, args.Data)
 	if err != nil {
-		return fmt.Errorf("encodePayload failed for msg %s @ %s: %w", msgID, subject, err)
+		return fmt.Errorf("encodePayload failed for msg %s @ %s: %w", args.MsgID, args.Subject, err)
 	}
 
-	p.log.Debugf("Publish message with msg-ID: %s @ %s\n", msgID, subject)
+	p.log.Debugf("Publish message with msg-ID: %s @ %s\n", args.MsgID, args.Subject)
 	msg := nats.Msg{
-		Subject: subject,
-		Reply:   reply,
+		Subject: args.Subject,
+		Reply:   args.Reply,
 		Data:    dataBytes,
 	}
 
-	if err = p.conn.nats.PublishMsg(&msg, msgID); err != nil {
-		return fmt.Errorf("message with msg-ID: %s @ %s could not be published: %w", msgID, subject, err)
+	if err = p.conn.nats.PublishMsg(&msg, args.MsgID); err != nil {
+		return fmt.Errorf("message with msg-ID: %s @ %s could not be published: %w", args.MsgID, args.Subject, err)
 	}
 	return nil
 }
 
-func makePublisher(conn *connection, streamName string, encoding MsgEncoding, logger logger.Logger) (*publisher, error) {
-	if err := validateStreamName(streamName); err != nil {
+func makePublisher(conn *connection, args *NewPublisherArgs) (*publisher, error) {
+	if err := validateStreamName(args.StreamName); err != nil {
 		return nil, err
 	}
 	_, err := conn.nats.GetOrAddStream(&nats.StreamConfig{
-		Name:       streamName,
-		Subjects:   []string{streamName + ".>"},
+		Name:       args.StreamName,
+		Subjects:   []string{args.StreamName + ".>"},
 		Storage:    defaultStorageType,
 		Replicas:   len(conn.nats.Servers()),
 		Duplicates: defaultDuplicationWindow,
@@ -69,9 +84,9 @@ func makePublisher(conn *connection, streamName string, encoding MsgEncoding, lo
 
 	p := &publisher{
 		conn:       conn,
-		log:        logger,
-		streamName: streamName,
-		encoding:   encoding,
+		log:        conn.log,
+		streamName: args.StreamName,
+		encoding:   args.Encoding,
 	}
 	return p, nil
 }

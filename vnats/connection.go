@@ -11,11 +11,11 @@ type Connection interface {
 
 	// NewPublisher creates a publisher for the given streamName.
 	// If the streamInfo does not exist, it is created.
-	NewPublisher(streamName string, encoding MsgEncoding) (Publisher, error)
+	NewPublisher(args NewPublisherArgs) (Publisher, error)
 
 	// NewSubscriber creates a subscriber for the given consumer name and subject.
 	// Consumer will be created if it does not exist.
-	NewSubscriber(consumerName string, subject string, encoding MsgEncoding, mode SubscriptionMode) (Subscriber, error)
+	NewSubscriber(args NewSubscriberArgs) (Subscriber, error)
 }
 
 // SubscriptionMode defines how the consumer and its subscriber are configured. This mode must be set accordingly
@@ -55,12 +55,48 @@ func Connect(servers []string, logger logger.Logger) (Connection, error) {
 	return conn, nil
 }
 
-func (c *connection) NewPublisher(streamName string, encoding MsgEncoding) (Publisher, error) {
-	return makePublisher(c, streamName, encoding, c.log)
+// NewPublisherArgs contains the arguments for creating a new publisher.
+// By using a struct we are open for adding new arguments in the future
+// and the caller can omit arguments where the default value is OK.
+type NewPublisherArgs struct {
+	// StreamName is the name of the stream like "PRODUCTS" or "ORDERS".
+	// If it does not exist, the stream will be created.
+	StreamName string
+
+	// Encoding for the payload. Default is JSON encoding.
+	Encoding MsgEncoding
 }
 
-func (c *connection) NewSubscriber(consumerName string, subject string, encoding MsgEncoding, mode SubscriptionMode) (Subscriber, error) {
-	sub, err := makeSubscriber(c, subject, consumerName, encoding, mode, c.log)
+func (c *connection) NewPublisher(args NewPublisherArgs) (Publisher, error) {
+	return makePublisher(c, &args)
+}
+
+// NewSubscriberArgs contains the arguments for creating a new subscriber.
+// By using a struct we are open for adding new arguments in the future
+// and the caller can omit arguments where the default value is OK.
+type NewSubscriberArgs struct {
+	// ConsumerName contains the name of the consumer. By default, this should be the
+	// name of the service.
+	ConsumerName string
+
+	// Subject defines which stream should be consumed.
+	// Examples:
+	//  "ORDERS.new" -> all new orders
+	//  "ORDERS.*"   -> all orders the are directly under "ORDERS", like "ORDERS.new", "ORDERS.processed",
+	//                  but not "ORDERS.new.error".
+	//  "ORDERS.>"   -> everything under orders, no matter how deep the path goes on, like "ORDERS.a.b.c.d.e".
+	Subject string
+
+	// Encoding for the payload. Default is JSON encoding.
+	Encoding MsgEncoding
+
+	// Mode defines the constraints of the subscription. Default is MultipleSubscribersAllowed.
+	// See SubscriptionMode for details.
+	Mode SubscriptionMode
+}
+
+func (c *connection) NewSubscriber(args NewSubscriberArgs) (Subscriber, error) {
+	sub, err := makeSubscriber(c, &args)
 	if err != nil {
 		return nil, err
 	}

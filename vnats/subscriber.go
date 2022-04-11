@@ -97,8 +97,8 @@ func (s *subscriber) Unsubscribe() error {
 	return nil
 }
 
-func makeSubscriber(conn *connection, subject string, consumerName string, encoding MsgEncoding, mode SubscriptionMode, logger logger.Logger) (*subscriber, error) {
-	sub, err := conn.nats.CreateSubscription(subject, consumerName, mode)
+func makeSubscriber(conn *connection, args *NewSubscriberArgs) (*subscriber, error) {
+	sub, err := conn.nats.CreateSubscription(args.Subject, args.ConsumerName, args.Mode)
 	if err != nil {
 		return nil, fmt.Errorf("subscriber could not be created: %w", err)
 	}
@@ -106,9 +106,9 @@ func makeSubscriber(conn *connection, subject string, consumerName string, encod
 	p := &subscriber{
 		conn:         conn,
 		subscription: sub,
-		log:          logger,
-		consumerName: consumerName,
-		encoding:     encoding,
+		log:          conn.log,
+		consumerName: args.ConsumerName,
+		encoding:     args.Encoding,
 		quitSignal:   make(chan bool),
 	}
 

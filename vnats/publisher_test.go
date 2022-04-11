@@ -2,7 +2,6 @@ package vnats
 
 import (
 	"encoding/json"
-	"github.com/fond-of/logging.go/logger"
 	"reflect"
 	"testing"
 )
@@ -108,7 +107,11 @@ func Test_publisher_Publish(t *testing.T) {
 				log:        testLogger,
 				streamName: tt.args.streamName,
 			}
-			err := pub.Publish(tt.args.subject, NoReply, tt.args.msgId, tt.args.data)
+			err := pub.Publish(PublishArgs{
+				Subject: tt.args.subject,
+				MsgID:   tt.args.msgId,
+				Data:    tt.args.data,
+			})
 			if ((err != nil) != tt.wantErr) && ((marshalErr != nil) != tt.wantErr) {
 				var foundErr error
 				if err != nil {
@@ -129,14 +132,15 @@ func Test_makePublisher(t *testing.T) {
 		conn       *connection
 		streamName string
 		encoding   MsgEncoding
-		logger     logger.Logger
 	}
+
 	natsTestBridge := makeTestNATSBridge("PRODUCTS", 1, nil, "test")
 	connectionEmptySubscriptions := &connection{
 		nats:        natsTestBridge,
 		log:         testLogger,
 		subscribers: nil,
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -148,7 +152,6 @@ func Test_makePublisher(t *testing.T) {
 			args: args{
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS",
-				logger:     testLogger,
 			},
 			want: &publisher{
 				conn:       connectionEmptySubscriptions,
@@ -162,7 +165,6 @@ func Test_makePublisher(t *testing.T) {
 			args: args{
 				conn:       connectionEmptySubscriptions,
 				streamName: "",
-				logger:     testLogger,
 			},
 			want:    nil,
 			wantErr: true,
@@ -172,7 +174,6 @@ func Test_makePublisher(t *testing.T) {
 			args: args{
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS*",
-				logger:     testLogger,
 			},
 			want:    nil,
 			wantErr: true,
@@ -182,7 +183,6 @@ func Test_makePublisher(t *testing.T) {
 			args: args{
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS.",
-				logger:     testLogger,
 			},
 			want:    nil,
 			wantErr: true,
@@ -192,7 +192,6 @@ func Test_makePublisher(t *testing.T) {
 			args: args{
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS>",
-				logger:     testLogger,
 			},
 			want:    nil,
 			wantErr: true,
@@ -200,7 +199,10 @@ func Test_makePublisher(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := makePublisher(tt.args.conn, tt.args.streamName, tt.args.encoding, tt.args.logger)
+			got, err := makePublisher(tt.args.conn, &NewPublisherArgs{
+				StreamName: tt.args.streamName,
+				Encoding:   tt.args.encoding,
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("makePublisher() error = %v, wantErr %v", err, tt.wantErr)
 				return
