@@ -98,25 +98,31 @@ func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []st
 
 func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
 	var receivedMessages []string
-	timeout := time.Millisecond * 200
 	done := make(chan bool)
 
 	handler := func(msg string) error {
 		receivedMessages = append(receivedMessages, msg)
 		if reflect.DeepEqual(receivedMessages, expectedMessages) {
-			fmt.Println("Nice messages are equal!")
 			done <- true
 		}
 		return nil
 	}
 
-	if err := sub.Subscribe(handler); err != nil {
+	if err := waitFinishMsgHandler(sub, handler, done); err != nil {
 		return nil, err
+	}
+	return receivedMessages, nil
+}
+
+func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) error {
+	timeout := time.Millisecond * 200
+	if err := sub.Subscribe(handler); err != nil {
+		return err
 	}
 	select {
 	case <-done:
-		return receivedMessages, nil
+		return nil
 	case <-time.After(timeout):
-		return receivedMessages, nil
+		return nil
 	}
 }
