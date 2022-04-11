@@ -46,7 +46,18 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 				t.Error(err)
 			}
 		}
-		receivedMessages, err := retrieveStringMessages(conn, subject, test.mode)
+
+		sub, err := conn.NewSubscriber(NewSubscriberArgs{
+			ConsumerName: "TestConsumer",
+			Subject:      subject,
+			Encoding:     EncJSON,
+			Mode:         test.mode,
+		})
+		if err != nil {
+			t.Error(err)
+		}
+
+		receivedMessages, err := retrieveStringMessages(sub, test.expectedMessages)
 		if err != nil {
 			t.Error(err)
 		}
@@ -85,25 +96,27 @@ func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []st
 	return nil
 }
 
-func retrieveStringMessages(conn Connection, subject string, mode SubscriptionMode) ([]string, error) {
-	sub, err := conn.NewSubscriber(NewSubscriberArgs{
-		ConsumerName: "TestConsumer",
-		Subject:      subject,
-		Encoding:     EncJSON,
-		Mode:         mode,
-	})
-	if err != nil {
-		return nil, err
-	}
+func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
 	var receivedMessages []string
+	timeout := time.Millisecond * 200
+	done := make(chan bool)
+
 	handler := func(msg string) error {
 		receivedMessages = append(receivedMessages, msg)
+		if reflect.DeepEqual(receivedMessages, expectedMessages) {
+			fmt.Println("Nice messages are equal!")
+			done <- true
+		}
 		return nil
 	}
 
 	if err := sub.Subscribe(handler); err != nil {
 		return nil, err
 	}
-	time.Sleep(time.Millisecond * 100) // sleep and block to retrieve all messages
-	return receivedMessages, nil
+	select {
+	case <-done:
+		return receivedMessages, nil
+	case <-time.After(timeout):
+		return receivedMessages, nil
+	}
 }
