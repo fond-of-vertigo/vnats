@@ -165,7 +165,7 @@ func Test_decodePayload(t *testing.T) {
 			}
 
 			v := tt.decodedValue
-			if reflect.ValueOf(tt.decodedValue).Kind() == reflect.Ptr && reflect.ValueOf(tt.wantValue).Kind() != reflect.Pointer {
+			if reflect.ValueOf(tt.decodedValue).Kind() == reflect.Ptr && reflect.ValueOf(tt.wantValue).Kind() != reflect.Ptr {
 				v = reflect.ValueOf(tt.decodedValue).Elem().Interface()
 			}
 			diff := cmp.Diff(v, tt.wantValue)
