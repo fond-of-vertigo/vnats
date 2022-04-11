@@ -1,6 +1,7 @@
 package vnats
 
 import (
+	"errors"
 	"fmt"
 	"github.com/fond-of/logging.go/logger"
 	"github.com/google/go-cmp/cmp"
@@ -72,9 +73,10 @@ func makeIntegrationTestConn(t *testing.T, streamName string, log logger.Logger)
 	conn, err := Connect([]string{os.Getenv("NATS_SERVER_URL")}, log)
 	if err != nil {
 		t.Errorf("NATS connection could not be established: %v", err)
+		os.Exit(1)
 	}
 
-	if err := conn.DeleteStream(streamName); err != nil && err != nats.ErrStreamNotFound {
+	if err := conn.deleteStream(streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
 		t.Errorf("Could not delete stream %s: %v.", streamName, err)
 	}
 	return conn

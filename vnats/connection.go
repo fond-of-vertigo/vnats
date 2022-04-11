@@ -16,6 +16,10 @@ type Connection interface {
 	// NewSubscriber creates a subscriber for the given consumer name and subject.
 	// Consumer will be created if it does not exist.
 	NewSubscriber(args NewSubscriberArgs) (Subscriber, error)
+
+	// deleteStream removes a stream with all messages.
+	// Primary for testing purposes.
+	deleteStream(streamName string) error
 }
 
 // SubscriptionMode defines how the consumer and its subscriber are configured. This mode must be set accordingly
@@ -123,4 +127,7 @@ func (c *connection) Close() error {
 	}
 	c.log.Infof("Closed NATS connection.")
 	return nil
+}
+func (c *connection) deleteStream(streamName string) error {
+	return c.nats.DeleteStream(streamName)
 }

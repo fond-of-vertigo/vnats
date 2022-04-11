@@ -31,6 +31,7 @@ type bridge interface {
 	//
 	// See note in subscription.Drain for JetStream subscriptions.
 	Drain() error
+	DeleteStream(streamName string) error
 }
 
 type natsBridge struct {
@@ -155,4 +156,8 @@ func (c *natsBridge) Servers() []string {
 
 func (c *natsBridge) Drain() error {
 	return c.connection.Drain()
+}
+
+func (c *natsBridge) DeleteStream(streamName string) error {
+	return c.jetStreamContext.DeleteStream(streamName)
 }
