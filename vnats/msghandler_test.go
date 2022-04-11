@@ -148,7 +148,7 @@ func Test_makeMsgHandler(t *testing.T) {
 	type testStruct struct {
 		Test string
 	}
-	
+
 	type args struct {
 		handler  MsgHandler
 		encoding MsgEncoding

@@ -15,7 +15,10 @@ func TestConnection_NewPublisher(t *testing.T) {
 	}
 	conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
 
-	_, err := conn.NewPublisher(integrationTestStreamName)
+	_, err := conn.NewPublisher(NewPublisherArgs{
+		StreamName: integrationTestStreamName,
+		Encoding:   EncJSON,
+	})
 	if err != nil {
 		t.Errorf("Publisher could not be created: %v", err)
 	}
@@ -28,10 +31,10 @@ type newSubscriberConfig struct {
 }
 
 var newSubscriberTestCases = []newSubscriberConfig{
-	{"IntegrationTestConsumer", integrationTestStreamName + ".*", MultipleInstances},
-	{"IntegrationTestConsumer", integrationTestStreamName + ".*", SingleInstanceMessagesInOrder},
-	{"IntegrationTestConsumer", integrationTestStreamName + ".tests.*", MultipleInstances},
-	{"IntegrationTestConsumer", integrationTestStreamName + ".tests.*", SingleInstanceMessagesInOrder},
+	{"IntegrationTestConsumer", integrationTestStreamName + ".*", MultipleSubscribersAllowed},
+	{"IntegrationTestConsumer", integrationTestStreamName + ".*", SingleSubscriberStrictMessageOrder},
+	{"IntegrationTestConsumer", integrationTestStreamName + ".tests.*", MultipleSubscribersAllowed},
+	{"IntegrationTestConsumer", integrationTestStreamName + ".tests.*", SingleSubscriberStrictMessageOrder},
 }
 
 func TestConnection_NewSubscriber(t *testing.T) {
@@ -41,11 +44,19 @@ func TestConnection_NewSubscriber(t *testing.T) {
 	for _, test := range newSubscriberTestCases {
 		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
 
-		_, err := conn.NewPublisher(integrationTestStreamName)
+		_, err := conn.NewPublisher(NewPublisherArgs{
+			StreamName: integrationTestStreamName,
+			Encoding:   EncJSON,
+		})
 		if err != nil {
 			t.Errorf("Publisher could not be created: %v", err)
 		}
-		_, err = conn.NewSubscriber(test.consumerName, test.subject, test.mode)
+		_, err = conn.NewSubscriber(NewSubscriberArgs{
+			ConsumerName: test.consumerName,
+			Subject:      test.subject,
+			Encoding:     EncJSON,
+			Mode:         test.mode,
+		})
 		if err != nil {
 			t.Errorf("Subscriber could not be created: %v", err)
 		}
