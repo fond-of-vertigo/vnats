@@ -102,6 +102,7 @@ func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []st
 	}
 	return nil
 }
+
 func publishStringMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
 	pub, err := conn.NewPublisher(NewPublisherArgs{
 		StreamName: integrationTestStreamName,
@@ -121,13 +122,52 @@ func publishStringMessages(t *testing.T, conn Connection, subject string, publis
 	}
 }
 
+func publishTestMessageStructMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
+	pub, err := conn.NewPublisher(NewPublisherArgs{
+		StreamName: integrationTestStreamName,
+		Encoding:   EncJSON,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	for idx, msg := range publishMessages {
+		if err := pub.Publish(PublishArgs{
+			Subject: subject,
+			MsgID:   fmt.Sprintf("msg-%d", idx),
+			Data:    testMessagePayload{Message: msg},
+		}); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
 func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
 	var receivedMessages []string
 	done := make(chan bool)
 
 	handler := func(msg string) error {
 		receivedMessages = append(receivedMessages, msg)
-		if reflect.DeepEqual(receivedMessages, expectedMessages) {
+
+		if len(receivedMessages) == len(expectedMessages) {
+			done <- true
+		}
+		return nil
+	}
+
+	if err := waitFinishMsgHandler(sub, handler, done); err != nil {
+		return nil, err
+	}
+	return receivedMessages, nil
+}
+
+func retrieveTestMessageStructMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
+	var receivedMessages []string
+	done := make(chan bool)
+
+	handler := func(msg *testMessagePayload) error {
+		receivedMessages = append(receivedMessages, msg.Message)
+
+		if len(receivedMessages) == len(expectedMessages) {
 			done <- true
 		}
 		return nil

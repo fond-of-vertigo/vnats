@@ -7,7 +7,7 @@ import (
 )
 
 type testMessagePayload struct {
-	message string
+	Message string `json:"message"`
 }
 
 func Test_publisher_Publish(t *testing.T) {
@@ -26,7 +26,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish test message",
 
 			args: args{
-				data:       testMessagePayload{message: "hello world"},
+				data:       testMessagePayload{Message: "hello world"},
 				streamName: "MESSAGES",
 				subject:    "MESSAGES.Important",
 				msgId:      "msg-001",
@@ -37,7 +37,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to subject not starting with streamName",
 
 			args: args{
-				data:       testMessagePayload{message: "hello world"},
+				data:       testMessagePayload{Message: "hello world"},
 				streamName: "MESSAGES",
 				subject:    "Important",
 				msgId:      "msg-001",
@@ -48,7 +48,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to empty subject",
 
 			args: args{
-				data:       testMessagePayload{message: "hello world"},
+				data:       testMessagePayload{Message: "hello world"},
 				streamName: "MESSAGES",
 				subject:    "",
 				msgId:      "msg-001",
@@ -59,7 +59,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to empty streamName",
 
 			args: args{
-				data:       testMessagePayload{message: "hello world"},
+				data:       testMessagePayload{Message: "hello world"},
 				streamName: "",
 				subject:    "MESSAGES",
 				msgId:      "msg-001",
@@ -70,7 +70,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to empty streamName & empty subject",
 
 			args: args{
-				data:       testMessagePayload{message: "hello world"},
+				data:       testMessagePayload{Message: "hello world"},
 				streamName: "",
 				subject:    "",
 				msgId:      "msg-001",
@@ -81,7 +81,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to subject starting with .",
 
 			args: args{
-				data:       testMessagePayload{message: "hello world"},
+				data:       testMessagePayload{Message: "hello world"},
 				streamName: "MESSAGES",
 				subject:    ".MESSAGES.Important",
 				msgId:      "msg-001",
