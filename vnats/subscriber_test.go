@@ -68,7 +68,9 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 				t.Error("Should fail, but no error was thrown!")
 			}
 		}
-
+		if err := conn.Close(); err != nil {
+			t.Error(err)
+		}
 	}
 }
 
@@ -118,5 +120,35 @@ func TestSubscriber_Subscribe_Struct(t *testing.T) {
 			}
 		}
 
+		if err := conn.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+}
+func TestSubscriber_CallTwice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	subject := integrationTestStreamName + ".subscribeTwice"
+	conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+	publishStringMessages(t, conn, subject, []string{})
+	sub, err := conn.NewSubscriber(NewSubscriberArgs{
+		ConsumerName: "TestConsumer",
+		Subject:      subject,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	handler := func(_ *interface{}) error { return nil }
+
+	if err := sub.Subscribe(handler); err != nil {
+		t.Error(err)
+	}
+	err = sub.Subscribe(handler)
+	if err.Error() != "handler is already set, don't call Subscribe() multiple times" {
+		t.Errorf("Error expeceted, but not received! Err: %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Error(err)
 	}
 }
