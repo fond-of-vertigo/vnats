@@ -20,6 +20,9 @@ type Connection interface {
 	// deleteStream removes a stream with all messages.
 	// Primary for testing purposes.
 	deleteStream(streamName string) error
+
+	//deleteConsumer unsubscribes all subscriber and deletes all consumers.
+	deleteConsumer(streamName string) error
 }
 
 // SubscriptionMode defines how the consumer and its subscriber are configured. This mode must be set accordingly
@@ -128,6 +131,22 @@ func (c *connection) Close() error {
 	c.log.Infof("Closed NATS connection.")
 	return nil
 }
+
 func (c *connection) deleteStream(streamName string) error {
 	return c.nats.DeleteStream(streamName)
+}
+
+func (c *connection) deleteConsumer(streamName string) error {
+	for _, sub := range c.subscribers {
+		consumerName := sub.consumerName
+
+		if err := sub.Unsubscribe(); err != nil {
+			return err
+		}
+
+		if err := c.nats.DeleteConsumers(streamName, consumerName); err != nil {
+			return err
+		}
+	}
+	return nil
 }

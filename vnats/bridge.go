@@ -31,7 +31,12 @@ type bridge interface {
 	//
 	// See note in subscription.Drain for JetStream subscriptions.
 	Drain() error
+
+	// DeleteStream for testing purposes.
 	DeleteStream(streamName string) error
+
+	// DeleteConsumers for testing purposes.
+	DeleteConsumers(streamName string, consumerName string) error
 }
 
 type natsBridge struct {
@@ -160,4 +165,7 @@ func (c *natsBridge) Drain() error {
 
 func (c *natsBridge) DeleteStream(streamName string) error {
 	return c.jetStreamContext.DeleteStream(streamName)
+}
+func (c *natsBridge) DeleteConsumers(streamName string, consumerName string) error {
+	return c.jetStreamContext.DeleteConsumer(streamName, consumerName)
 }

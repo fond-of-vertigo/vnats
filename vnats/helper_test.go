@@ -25,6 +25,10 @@ func (b *testBridge) DeleteStream(_ string) error {
 	return nil
 }
 
+func (b *testBridge) DeleteConsumers(_ string, _ string) error {
+	return nil
+}
+
 func (b *testBridge) GetOrAddStream(_ *nats.StreamConfig) (*nats.StreamInfo, error) {
 	return nil, nil
 
@@ -77,7 +81,9 @@ func makeIntegrationTestConn(t *testing.T, streamName string, log logger.Logger)
 		t.Errorf("NATS connection could not be established: %v", err)
 		os.Exit(1)
 	}
-
+	if err := conn.deleteConsumer(streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete consumers %s: %v.", streamName, err)
+	}
 	if err := conn.deleteStream(streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
 		t.Errorf("Could not delete stream %s: %v.", streamName, err)
 	}
