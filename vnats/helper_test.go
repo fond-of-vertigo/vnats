@@ -87,6 +87,10 @@ func makeIntegrationTestConn(t *testing.T, streamName string, log logger.Logger)
 	if err := conn.deleteStream(streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
 		t.Errorf("Could not delete stream %s: %v.", streamName, err)
 	}
+
+	if err := conn.createStream(streamName); err != nil {
+		t.Errorf("Stream %s could not be created: %v", streamName, err)
+	}
 	return conn
 }
 

@@ -3,7 +3,9 @@ package vnats
 import (
 	"fmt"
 	"github.com/fond-of/logging.go/logger"
+	"github.com/nats-io/nats.go"
 	"io"
+	"time"
 )
 
 type Connection interface {
@@ -16,6 +18,10 @@ type Connection interface {
 	// NewSubscriber creates a subscriber for the given consumer name and subject.
 	// Consumer will be created if it does not exist.
 	NewSubscriber(args NewSubscriberArgs) (Subscriber, error)
+
+	// createStream creates a stream, if it exists already, there will be no action.
+	// Primary for testing purposes.
+	createStream(streamName string) error
 
 	// deleteStream removes a stream with all messages.
 	// Primary for testing purposes.
@@ -130,6 +136,18 @@ func (c *connection) Close() error {
 	}
 	c.log.Infof("Closed NATS connection.")
 	return nil
+}
+
+func (c *connection) createStream(streamName string) error {
+	_, err := c.nats.GetOrAddStream(&nats.StreamConfig{
+		Name:       streamName,
+		Subjects:   []string{streamName + ".>"},
+		Storage:    defaultStorageType,
+		Replicas:   len(c.nats.Servers()),
+		Duplicates: defaultDuplicationWindow,
+		MaxAge:     time.Hour * 24 * 30,
+	})
+	return err
 }
 
 func (c *connection) deleteStream(streamName string) error {
