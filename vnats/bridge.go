@@ -3,6 +3,7 @@ package vnats
 import (
 	"fmt"
 	"github.com/fond-of/logging.go/logger"
+	natsServer "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"strings"
 )
@@ -123,11 +124,11 @@ func (c *natsBridge) CreateSubscription(subject string, consumerName string, mod
 func patchConsumerConfig(config *nats.ConsumerConfig, mode SubscriptionMode) {
 	switch mode {
 	case MultipleSubscribersAllowed:
-		config.MaxAckPending = 0
+		config.MaxAckPending = natsServer.JsDefaultMaxAckPending
 	case SingleSubscriberStrictMessageOrder:
 		config.MaxAckPending = 1
 	default:
-		config.MaxAckPending = 0
+		config.MaxAckPending = natsServer.JsDefaultMaxAckPending
 	}
 }
 
