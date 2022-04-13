@@ -46,7 +46,7 @@ func main() {
 	}
 
 	// Create publisher bound to stream `PRODUCTS`
-	pub, err := conn.NewPublisher("PRODUCTS")
+	pub, err := conn.NewPublisher(vnats.NewPublisherArgs{StreamName: "PRODUCTS"})
 	if err != nil {
 		log.Errorf("Could not create publisher: %v", err)
 	}
@@ -60,7 +60,11 @@ func main() {
 	// Publish message to stream `PRODUCTS.PRICES` with a context bound, unique message ID 
 	// msgID is used for deduplication
 	msgID := fmt.Sprintf("%s-%s", p.Name, p.LastUpdated)
-	if err := pub.Publish("PRODUCTS.PRICES", p, msgID); err != nil {
+	if err := pub.Publish(vnats.PublishArgs{
+		Subject: "PRODUCTS.PRICES",
+		MsgID:   msgID,
+		Data:    p,
+	}); err != nil {
 		log.Errorf("Could not publish %v: %v", p, err)
 	}
 
@@ -76,8 +80,8 @@ func main() {
 ### Subscriber
 
 We use a pull-based subscriber by default, which scales horizontally. The subscriber is asynchronous and pulls
-continuously for new messages. A message handler is needed to process each message. The message will be passed as a
-slice of bytes `[]byte`.
+continuously for new messages. A message handler is needed to process each message. The message will be either passed 
+as a predefined type, a string or a slice of bytes `[]byte`.
 
 **Important**: The `MsgHandler` **MUST** finish its task under 30 seconds. Longer tasks must be only triggered and
 executed asynchronously.
@@ -91,7 +95,6 @@ import (
 	"github.com/fond-of/vnats.go/vnats"
 	"github.com/fond-of/logging.go/logger"
 	"time"
-	"encoding/json"
 	"os"
 	"os/signal"
 )
@@ -116,13 +119,18 @@ func main() {
 
 	// Create Pull-Subscriber bound to consumer `EXAMPLE_CONSUMER` 
 	// and the subject `PRODUCTS.PRICES`
-	sub, err := conn.NewSubscriber("EXAMPLE_CONSUMER", "PRODUCTS.PRICES", vnats.MultipleInstances)
+	sub, err := conn.NewSubscriber(vnats.NewSubscriberArgs{
+		ConsumerName: "EXAMPLE_CONSUMER",
+		Subject:      "PRODUCTS.PRICES",
+	})
 	if err != nil {
 		log.Errorf("Could not create subscriber: %v", err)
 	}
 
 	// Subscribe and specify messageHandler
-	sub.Subscribe(msgHandler)
+	if err := sub.Subscribe(msgHandler); err != nil {
+		log.Errorf(err.Error()) 
+	}
 
 	// Wait for stop signal (e.g. ctrl-C)
 	waitForStopSignal()
@@ -134,13 +142,8 @@ func main() {
 
 }
 
-func msgHandler(data []byte) error {
-	var p Product
-
-	if err := json.Unmarshal(data, &p); err != nil {
-		return err
-	}
-
+// MsgHandler returns the specified type and tries to unmarshal the data.
+func msgHandler(p *Product) error {
 	log.Debugf("Received product: %v", p)
 	return nil
 }
