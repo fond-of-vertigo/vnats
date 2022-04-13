@@ -208,3 +208,104 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 		}
 	}
 }
+
+type subscriberConfig struct {
+	mode              SubscriptionMode
+	alwaysFail        bool
+	minSuccessfulMsgs int
+	minFailedMsgs     int
+}
+type multipleSubscriberConfig struct {
+	subscribers             []subscriberConfig
+	waitUntilCheckCallCount time.Duration
+	wantErr                 bool
+}
+
+var multipleSubscriberTestCases = []multipleSubscriberConfig{
+	{
+		subscribers: []subscriberConfig{
+			{
+				mode:              MultipleSubscribersAllowed,
+				alwaysFail:        true,
+				minSuccessfulMsgs: 0,
+				minFailedMsgs:     1,
+			}, {
+				mode:              MultipleSubscribersAllowed,
+				alwaysFail:        false,
+				minSuccessfulMsgs: 6,
+				minFailedMsgs:     0,
+			},
+		},
+		waitUntilCheckCallCount: defaultNakDelay,
+		wantErr:                 false,
+	},
+	{
+		subscribers: []subscriberConfig{
+			{
+				mode:              MultipleSubscribersAllowed,
+				alwaysFail:        false,
+				minSuccessfulMsgs: 3,
+				minFailedMsgs:     0,
+			}, {
+				mode:              MultipleSubscribersAllowed,
+				alwaysFail:        false,
+				minSuccessfulMsgs: 3,
+				minFailedMsgs:     0,
+			},
+		},
+		waitUntilCheckCallCount: defaultNakDelay,
+		wantErr:                 false,
+	},
+}
+
+type subscriptionState struct {
+	subscriber     Subscriber
+	SuccessfulMsgs int
+	FailedMsgs     int
+}
+
+func TestSubscriberMultiple(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	subject := integrationTestStreamName + ".multipleSubscriber"
+
+	for _, test := range multipleSubscriberTestCases {
+		var s []subscriptionState
+
+		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+
+		for idx, subConfig := range test.subscribers {
+			sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, subConfig.mode)
+			s = append(s, subscriptionState{subscriber: sub})
+
+			handler := func(msg string) error {
+				if subConfig.alwaysFail {
+					s[idx].FailedMsgs += 1
+					t.Logf("Subscriber %v: Failed msg handeling", idx)
+					return fmt.Errorf("msg handleing failed")
+				}
+				t.Logf("Subscriber %v: Successful msg handeling", idx)
+				s[idx].SuccessfulMsgs += 1
+				return nil
+			}
+
+			if err := s[idx].subscriber.Subscribe(handler); err != nil && !test.wantErr {
+				t.Error(err)
+			}
+		}
+
+		publishStringMessages(t, conn, subject, []string{"hello", "world", "this", "is", "robot", "z"})
+
+		time.Sleep(test.waitUntilCheckCallCount)
+
+		for idx, subState := range s {
+			if subState.FailedMsgs < test.subscribers[idx].minFailedMsgs {
+				t.Errorf("Subscriber %d: Too less messages failed %d < %d", idx, subState.FailedMsgs, test.subscribers[idx].minFailedMsgs)
+			}
+			if subState.SuccessfulMsgs < test.subscribers[idx].minSuccessfulMsgs {
+				t.Errorf("Subscriber %d: Too less messages were successful %d < %d", idx, subState.SuccessfulMsgs, test.subscribers[idx].minSuccessfulMsgs)
+			}
+		}
+	}
+}
