@@ -1,4 +1,4 @@
-module github.com/fond-of/vnats.go
+module github.com/fond-of-vertigo/vnats
 
 go 1.17
 
