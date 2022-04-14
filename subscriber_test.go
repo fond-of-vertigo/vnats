@@ -39,7 +39,6 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 		sub, err := conn.NewSubscriber(NewSubscriberArgs{
 			ConsumerName: "TestConsumer",
 			Subject:      subject,
-			Encoding:     EncJSON,
 			Mode:         test.mode,
 		})
 		if err != nil {
@@ -90,7 +89,6 @@ func TestSubscriber_Subscribe_Struct(t *testing.T) {
 		sub, err := conn.NewSubscriber(NewSubscriberArgs{
 			ConsumerName: "TestConsumer",
 			Subject:      subject,
-			Encoding:     EncJSON,
 			Mode:         test.mode,
 		})
 		if err != nil {
@@ -141,7 +139,7 @@ func TestSubscriber_CallTwice(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	handler := func(_ *interface{}) error { return nil }
+	handler := func(_ InMsg) error { return nil }
 
 	if err := sub.Subscribe(handler); err != nil {
 		t.Error(err)
@@ -181,8 +179,8 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 
 		callCountHello, callCountWorld := 0, 0
 
-		handler := func(msg string) error {
-			switch msg {
+		handler := func(msg InMsg) error {
+			switch string(msg.Data()) {
 			case "hello":
 				callCountHello += 1
 			case "world":
@@ -279,7 +277,7 @@ func TestSubscriberMultiple(t *testing.T) {
 			sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, subConfig.mode)
 			s = append(s, subscriptionState{subscriber: sub})
 
-			handler := func(msg string) error {
+			handler := func(msg InMsg) error {
 				if subConfig.alwaysFail {
 					s[idx].FailedMsgs += 1
 					t.Logf("Subscriber %v: Failed msg handeling", idx)

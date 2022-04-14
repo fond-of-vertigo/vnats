@@ -16,24 +16,22 @@ type Subscriber interface {
 	Unsubscribe() error
 }
 
+// MsgHandler is the type of function the subscriber has to implement
+// to process an incoming message.
+type MsgHandler func(msg InMsg) error
+
 type subscriber struct {
 	conn         *connection
 	subscription subscription
 	log          logger.Logger
 	consumerName string
-	encoding     MsgEncoding
-	handler      *msgHandler
+	handler      MsgHandler
 	quitSignal   chan bool
 }
 
 func (s *subscriber) Subscribe(handler MsgHandler) (err error) {
 	if s.handler != nil {
 		return fmt.Errorf("handler is already set, don't call Subscribe() multiple times")
-	}
-
-	s.handler, err = makeMsgHandler(s.encoding, handler)
-	if err != nil {
-		return err
 	}
 
 	go func() {
@@ -67,12 +65,9 @@ func (s *subscriber) fetchMessages() {
 		s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
 	}
 
-	err = s.handler.handle(msg)
+	inMsg := makeInMsg(msg)
+	err = s.handler(inMsg)
 	if err != nil {
-		if errors.Is(err, ErrDecodePayload) {
-			// Do something special with unmarshal errors?
-		}
-
 		s.log.Errorf("Message handle error, will be NAKed: %s", err)
 		if err := msg.NakWithDelay(defaultNakDelay); err != nil {
 			s.log.Errorf("msg.Nak() failed: %s", err)
@@ -107,7 +102,6 @@ func makeSubscriber(conn *connection, args *NewSubscriberArgs) (*subscriber, err
 		subscription: sub,
 		log:          conn.log,
 		consumerName: args.ConsumerName,
-		encoding:     args.Encoding,
 		quitSignal:   make(chan bool),
 	}
 

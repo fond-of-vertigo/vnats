@@ -17,7 +17,6 @@ func TestConnection_NewPublisher(t *testing.T) {
 
 	_, err := conn.NewPublisher(NewPublisherArgs{
 		StreamName: integrationTestStreamName,
-		Encoding:   EncJSON,
 	})
 	if err != nil {
 		t.Errorf("Publisher could not be created: %v", err)
@@ -46,7 +45,6 @@ func TestConnection_NewSubscriber(t *testing.T) {
 
 		_, err := conn.NewPublisher(NewPublisherArgs{
 			StreamName: integrationTestStreamName,
-			Encoding:   EncJSON,
 		})
 		if err != nil {
 			t.Errorf("Publisher could not be created: %v", err)
@@ -54,7 +52,6 @@ func TestConnection_NewSubscriber(t *testing.T) {
 		_, err = conn.NewSubscriber(NewSubscriberArgs{
 			ConsumerName: test.consumerName,
 			Subject:      test.subject,
-			Encoding:     EncJSON,
 			Mode:         test.mode,
 		})
 		if err != nil {

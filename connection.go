@@ -75,9 +75,6 @@ type NewPublisherArgs struct {
 	// StreamName is the name of the stream like "PRODUCTS" or "ORDERS".
 	// If it does not exist, the stream will be created.
 	StreamName string
-
-	// Encoding for the payload. Default is JSON encoding.
-	Encoding MsgEncoding
 }
 
 func (c *connection) NewPublisher(args NewPublisherArgs) (Publisher, error) {
@@ -99,9 +96,6 @@ type NewSubscriberArgs struct {
 	//                  but not "ORDERS.new.error".
 	//  "ORDERS.>"   -> everything under orders, no matter how deep the path goes on, like "ORDERS.a.b.c.d.e".
 	Subject string
-
-	// Encoding for the payload. Default is JSON encoding.
-	Encoding MsgEncoding
 
 	// Mode defines the constraints of the subscription. Default is MultipleSubscribersAllowed.
 	// See SubscriptionMode for details.

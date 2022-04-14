@@ -12,7 +12,7 @@ type testMessagePayload struct {
 
 func Test_publisher_Publish(t *testing.T) {
 	type args struct {
-		data       interface{}
+		data       []byte
 		streamName string
 		subject    string
 		msgId      string
@@ -22,7 +22,7 @@ func Test_publisher_Publish(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{
+		/*{
 			name: "Publish test message",
 
 			args: args{
@@ -87,11 +87,11 @@ func Test_publisher_Publish(t *testing.T) {
 				msgId:      "msg-001",
 			},
 			wantErr: true,
-		}, {
+		}, */{
 			name: "Publish a string",
 
 			args: args{
-				data:       "test message",
+				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    "MESSAGES.Important",
 				msgId:      "msg-001",
@@ -107,7 +107,7 @@ func Test_publisher_Publish(t *testing.T) {
 				log:        testLogger,
 				streamName: tt.args.streamName,
 			}
-			err := pub.Publish(PublishArgs{
+			err := pub.Publish(&OutMsg{
 				Subject: tt.args.subject,
 				MsgID:   tt.args.msgId,
 				Data:    tt.args.data,
@@ -131,7 +131,6 @@ func Test_makePublisher(t *testing.T) {
 	type args struct {
 		conn       *connection
 		streamName string
-		encoding   MsgEncoding
 	}
 
 	natsTestBridge := makeTestNATSBridge("PRODUCTS", 1, nil, "test")
@@ -201,7 +200,6 @@ func Test_makePublisher(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := makePublisher(tt.args.conn, &NewPublisherArgs{
 				StreamName: tt.args.streamName,
-				Encoding:   tt.args.encoding,
 			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("makePublisher() error = %v, wantErr %v", err, tt.wantErr)

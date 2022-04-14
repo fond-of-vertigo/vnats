@@ -10,20 +10,19 @@ import (
 
 type Publisher interface {
 	// Publish sends the message (data) to the given subject.
-	Publish(args PublishArgs) error
+	Publish(outMsg *OutMsg) error
 }
 
 type publisher struct {
 	conn       *connection
 	streamName string
-	encoding   MsgEncoding
 	log        logger.Logger
 }
 
-// PublishArgs contains the arguments publishing a new message.
+// OutMsg contains the arguments publishing a new message.
 // By using a struct we are open for adding new arguments in the future
 // and the caller can omit arguments where the default value is OK.
-type PublishArgs struct {
+type OutMsg struct {
 	// Subject is the destination subject name, like "PRODUCTS.new"
 	Subject string
 
@@ -39,28 +38,27 @@ type PublishArgs struct {
 	// is treated. If JSON encoding is enabled, this can be a struct which is the
 	// marshalled to JSON automatically.
 	// If raw encoding is used, this must be a byte array or a string.
-	Data interface{}
+	Data []byte
+
+	// Header contains optional headers for the message, like HTTP headers.
+	Header *nats.Header
 }
 
-func (p *publisher) Publish(args PublishArgs) error {
-	if err := validateSubject(args.Subject, p.streamName); err != nil {
+func (p *publisher) Publish(outMsg *OutMsg) error {
+	if err := validateSubject(outMsg.Subject, p.streamName); err != nil {
 		return err
 	}
 
-	dataBytes, err := encodePayload(p.encoding, args.Data)
-	if err != nil {
-		return fmt.Errorf("encodePayload failed for msg %s @ %s: %w", args.MsgID, args.Subject, err)
-	}
-
-	p.log.Debugf("Publish message with msg-ID: %s @ %s\n", args.MsgID, args.Subject)
+	p.log.Debugf("Publish message with msg-ID: %s @ %s\n", outMsg.MsgID, outMsg.Subject)
 	msg := nats.Msg{
-		Subject: args.Subject,
-		Reply:   args.Reply,
-		Data:    dataBytes,
+		Subject: outMsg.Subject,
+		Reply:   outMsg.Reply,
+		Data:    outMsg.Data,
 	}
 
-	if err = p.conn.nats.PublishMsg(&msg, args.MsgID); err != nil {
-		return fmt.Errorf("message with msg-ID: %s @ %s could not be published: %w", args.MsgID, args.Subject, err)
+	err := p.conn.nats.PublishMsg(&msg, outMsg.MsgID)
+	if err != nil {
+		return fmt.Errorf("message with msg-ID: %s @ %s could not be published: %w", outMsg.MsgID, outMsg.Subject, err)
 	}
 	return nil
 }
@@ -86,7 +84,6 @@ func makePublisher(conn *connection, args *NewPublisherArgs) (*publisher, error)
 		conn:       conn,
 		log:        conn.log,
 		streamName: args.StreamName,
-		encoding:   args.Encoding,
 	}
 	return p, nil
 }
