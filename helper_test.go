@@ -75,20 +75,70 @@ func makeTestConnection(streamName string, currentSequenceNumber uint64, wantDat
 	}
 }
 
+func createStream(b *natsBridge, streamName string) error {
+	_, err := b.GetOrAddStream(&nats.StreamConfig{
+		Name:       streamName,
+		Subjects:   []string{streamName + ".>"},
+		Storage:    defaultStorageType,
+		Replicas:   len(b.Servers()),
+		Duplicates: defaultDuplicationWindow,
+		MaxAge:     time.Hour * 24 * 30,
+	})
+	return err
+}
+
+func deleteStream(b *natsBridge, streamName string) error {
+	return b.jetStreamContext.DeleteStream(streamName)
+}
+
+func deleteConsumer(c *connection, b *natsBridge, streamName string) error {
+	for _, sub := range c.subscribers {
+		consumerName := sub.consumerName
+
+		if err := sub.Unsubscribe(); err != nil {
+			return err
+		}
+
+		if err := b.jetStreamContext.DeleteConsumer(streamName, consumerName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func makeIntegrationTestConn(t *testing.T, streamName string, log logger.Logger) Connection {
-	conn, err := Connect([]string{os.Getenv("NATS_SERVER_URL")}, log)
-	if err != nil {
-		t.Errorf("NATS connection could not be established: %v", err)
-		os.Exit(1)
-	}
-	if err := conn.deleteConsumer(streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Errorf("Could not delete consumers %s: %v.", streamName, err)
-	}
-	if err := conn.deleteStream(streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Errorf("Could not delete stream %s: %v.", streamName, err)
+	conn := &connection{
+		log: log,
 	}
 
-	if err := conn.createStream(streamName); err != nil {
+	nb := &natsBridge{
+		log: log,
+	}
+
+	var err error
+	url := os.Getenv("NATS_SERVER_URL")
+	if url == "" {
+		t.Error("Env-Var `NATS_SERVER_URL` is empty!")
+	}
+	nb.connection, err = nats.Connect(url)
+	if err != nil {
+		t.Error(fmt.Errorf("could not make NATS connection to %s: %w", url, err))
+	}
+
+	nb.jetStreamContext, err = nb.connection.JetStream()
+	if err != nil {
+		t.Error(err)
+	}
+
+	conn.nats = nb
+
+	if err := deleteConsumer(conn, nb, streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete consumers %s: %v.", streamName, err)
+	}
+	if err := deleteStream(nb, streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete stream %s: %v.", streamName, err)
+	}
+	if err := createStream(nb, streamName); err != nil {
 		t.Errorf("Stream %s could not be created: %v", streamName, err)
 	}
 	return conn
