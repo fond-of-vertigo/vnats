@@ -3,9 +3,7 @@ package vnats
 import (
 	"fmt"
 	"github.com/fond-of/logging.go/logger"
-	"github.com/nats-io/nats.go"
 	"io"
-	"time"
 )
 
 type Connection interface {
@@ -18,17 +16,6 @@ type Connection interface {
 	// NewSubscriber creates a subscriber for the given consumer name and subject.
 	// Consumer will be created if it does not exist.
 	NewSubscriber(args NewSubscriberArgs) (Subscriber, error)
-
-	// createStream creates a stream, if it exists already, there will be no action.
-	// Primary for testing purposes.
-	createStream(streamName string) error
-
-	// deleteStream removes a stream with all messages.
-	// Primary for testing purposes.
-	deleteStream(streamName string) error
-
-	//deleteConsumer unsubscribes all subscriber and deletes all consumers.
-	deleteConsumer(streamName string) error
 }
 
 // SubscriptionMode defines how the consumer and its subscriber are configured. This mode must be set accordingly
@@ -129,36 +116,5 @@ func (c *connection) Close() error {
 		return fmt.Errorf("NATS connection could not be closed: %w", err)
 	}
 	c.log.Infof("Closed NATS connection.")
-	return nil
-}
-
-func (c *connection) createStream(streamName string) error {
-	_, err := c.nats.GetOrAddStream(&nats.StreamConfig{
-		Name:       streamName,
-		Subjects:   []string{streamName + ".>"},
-		Storage:    defaultStorageType,
-		Replicas:   len(c.nats.Servers()),
-		Duplicates: defaultDuplicationWindow,
-		MaxAge:     time.Hour * 24 * 30,
-	})
-	return err
-}
-
-func (c *connection) deleteStream(streamName string) error {
-	return c.nats.DeleteStream(streamName)
-}
-
-func (c *connection) deleteConsumer(streamName string) error {
-	for _, sub := range c.subscribers {
-		consumerName := sub.consumerName
-
-		if err := sub.Unsubscribe(); err != nil {
-			return err
-		}
-
-		if err := c.nats.DeleteConsumers(streamName, consumerName); err != nil {
-			return err
-		}
-	}
 	return nil
 }
