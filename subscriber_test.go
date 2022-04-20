@@ -162,8 +162,20 @@ type restDownConfig struct {
 }
 
 var restDownTestCases = []restDownConfig{
-	{SingleSubscriberStrictMessageOrder, 2, 0, 0, defaultNakDelay * 2},
-	{MultipleSubscribersAllowed, 2, 2, 3, defaultNakDelay * 2},
+	{
+		mode:                    SingleSubscriberStrictMessageOrder,
+		minCallFirstMsg:         2,
+		minCallSecondMsg:        0,
+		maxCallSecondMsg:        0,
+		waitUntilCheckCallCount: defaultNakDelay * 2,
+	},
+	{
+		mode:                    MultipleSubscribersAllowed,
+		minCallFirstMsg:         2,
+		minCallSecondMsg:        2,
+		maxCallSecondMsg:        3,
+		waitUntilCheckCallCount: defaultNakDelay * 2,
+	},
 }
 
 func TestSubscriberAlwaysFails(t *testing.T) {
