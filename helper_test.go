@@ -265,7 +265,7 @@ func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) er
 	select {
 	case <-done:
 		return nil
-	case <-time.After(timeout):
+	case <-time.After(time.Millisecond * 200):
 		return nil
 	}
 }
