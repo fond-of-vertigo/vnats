@@ -164,6 +164,15 @@ func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []st
 	return nil
 }
 
+func publishManyMessages(t *testing.T, conn Connection, subject string, messageCount int) {
+	var messages []string
+	for i := 0; i < messageCount; i++ {
+		messages = append(messages, fmt.Sprintf("msg-%d", i))
+	}
+
+	publishStringMessages(t, conn, subject, messages)
+}
+
 func publishStringMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
 	pub, err := conn.NewPublisher(NewPublisherArgs{
 		StreamName: integrationTestStreamName,
@@ -249,7 +258,6 @@ func retrieveTestMessageStructMessages(sub Subscriber, expectedMessages []string
 }
 
 func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) error {
-	timeout := time.Millisecond * 200
 	if err := sub.Subscribe(handler); err != nil {
 		return err
 	}
