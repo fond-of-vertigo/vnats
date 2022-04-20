@@ -2,7 +2,7 @@ package vnats
 
 import (
 	"fmt"
-	"github.com/fond-of/logging.go/logger"
+	"github.com/fond-of-vertigo/logger"
 	natsServer "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"strings"

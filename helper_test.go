@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fond-of/logging.go/logger"
+	"github.com/fond-of-vertigo/logger"
 	"github.com/google/go-cmp/cmp"
 	"github.com/nats-io/nats.go"
 	"os"

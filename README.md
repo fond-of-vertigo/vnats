@@ -21,8 +21,8 @@ The publisher expects an `interface`, which makes it useful for publishing struc
 package main
 
 import (
-	"github.com/fond-of/vnats.go/vnats"
-	"github.com/fond-of/logging.go/logger"
+	"github.com/fond-of-vertigo/vnats"
+	"github.com/fond-of-vertigo/logger"
 	"fmt"
 	"time"
 )
@@ -93,7 +93,7 @@ package main
 
 import (
 	"github.com/fond-of/vnats.go/vnats"
-	"github.com/fond-of/logging.go/logger"
+	"github.com/fond-of-vertigo/logger"
 	"time"
 	"os"
 	"os/signal"
