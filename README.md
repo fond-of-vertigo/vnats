@@ -21,6 +21,7 @@ The publisher expects an `interface`, which makes it useful for publishing struc
 package main
 
 import (
+	"encoding/json"
 	"github.com/fond-of-vertigo/vnats"
 	"github.com/fond-of-vertigo/logger"
 	"fmt"
@@ -56,14 +57,20 @@ func main() {
 		Price:       "12,34",
 		LastUpdated: time.Now(),
 	}
-
+	
+	// Since vnats needs a slice of bytes, the products is converted via the json marshaller
+	productToBytes, err := json.Marshal(p)
+	if err != nil {
+        panic(err)
+	}
+	
 	// Publish message to stream `PRODUCTS.PRICES` with a context bound, unique message ID 
 	// msgID is used for deduplication
 	msgID := fmt.Sprintf("%s-%s", p.Name, p.LastUpdated)
-	if err := pub.Publish(vnats.PublishArgs{
+	if err := pub.Publish(&vnats.OutMsg{
 		Subject: "PRODUCTS.PRICES",
 		MsgID:   msgID,
-		Data:    p,
+		Data:    productToBytes,
 	}); err != nil {
 		log.Errorf("Could not publish %v: %v", p, err)
 	}
@@ -92,7 +99,8 @@ executed asynchronously.
 package main
 
 import (
-	"github.com/fond-of/vnats.go/vnats"
+	"encoding/json"
+	"github.com/fond-of-vertigo/vnats"
 	"github.com/fond-of-vertigo/logger"
 	"time"
 	"os"
@@ -129,7 +137,7 @@ func main() {
 
 	// Subscribe and specify messageHandler
 	if err := sub.Subscribe(msgHandler); err != nil {
-		log.Errorf(err.Error()) 
+		log.Errorf(err.Error())
 	}
 
 	// Wait for stop signal (e.g. ctrl-C)
@@ -143,7 +151,11 @@ func main() {
 }
 
 // MsgHandler returns the specified type and tries to unmarshal the data.
-func msgHandler(p *Product) error {
+func msgHandler(msg vnats.InMsg) error {
+	var p Product
+	if err := json.Unmarshal(msg.Data(), &p);  err != nil {
+        return err
+	}
 	log.Debugf("Received product: %v", p)
 	return nil
 }
