@@ -3,7 +3,7 @@ package vnats
 import (
 	"errors"
 	"fmt"
-	"github.com/fond-of/logging.go/logger"
+	"github.com/fond-of-vertigo/logger"
 	"github.com/nats-io/nats.go"
 )
 
@@ -33,6 +33,8 @@ func (s *subscriber) Subscribe(handler MsgHandler) (err error) {
 	if s.handler != nil {
 		return fmt.Errorf("handler is already set, don't call Subscribe() multiple times")
 	}
+
+	s.handler = handler
 
 	go func() {
 		for {

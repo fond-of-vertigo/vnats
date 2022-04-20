@@ -2,7 +2,7 @@ package vnats
 
 import (
 	"fmt"
-	"github.com/fond-of/logging.go/logger"
+	"github.com/fond-of-vertigo/logger"
 	natsServer "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"strings"
@@ -32,12 +32,6 @@ type bridge interface {
 	//
 	// See note in subscription.Drain for JetStream subscriptions.
 	Drain() error
-
-	// DeleteStream for testing purposes.
-	DeleteStream(streamName string) error
-
-	// DeleteConsumers for testing purposes.
-	DeleteConsumers(streamName string, consumerName string) error
 }
 
 type natsBridge struct {
@@ -162,11 +156,4 @@ func (c *natsBridge) Servers() []string {
 
 func (c *natsBridge) Drain() error {
 	return c.connection.Drain()
-}
-
-func (c *natsBridge) DeleteStream(streamName string) error {
-	return c.jetStreamContext.DeleteStream(streamName)
-}
-func (c *natsBridge) DeleteConsumers(streamName string, consumerName string) error {
-	return c.jetStreamContext.DeleteConsumer(streamName, consumerName)
 }

@@ -1,7 +1,7 @@
 package vnats
 
 import (
-	"github.com/fond-of/logging.go/logger"
+	"github.com/fond-of-vertigo/logger"
 	"testing"
 )
 

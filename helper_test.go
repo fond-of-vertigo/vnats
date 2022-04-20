@@ -1,9 +1,10 @@
 package vnats
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fond-of/logging.go/logger"
+	"github.com/fond-of-vertigo/logger"
 	"github.com/google/go-cmp/cmp"
 	"github.com/nats-io/nats.go"
 	"os"
@@ -75,20 +76,70 @@ func makeTestConnection(streamName string, currentSequenceNumber uint64, wantDat
 	}
 }
 
+func createStream(b *natsBridge, streamName string) error {
+	_, err := b.GetOrAddStream(&nats.StreamConfig{
+		Name:       streamName,
+		Subjects:   []string{streamName + ".>"},
+		Storage:    defaultStorageType,
+		Replicas:   len(b.Servers()),
+		Duplicates: defaultDuplicationWindow,
+		MaxAge:     time.Hour * 24 * 30,
+	})
+	return err
+}
+
+func deleteStream(b *natsBridge, streamName string) error {
+	return b.jetStreamContext.DeleteStream(streamName)
+}
+
+func deleteConsumer(c *connection, b *natsBridge, streamName string) error {
+	for _, sub := range c.subscribers {
+		consumerName := sub.consumerName
+
+		if err := sub.Unsubscribe(); err != nil {
+			return err
+		}
+
+		if err := b.jetStreamContext.DeleteConsumer(streamName, consumerName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func makeIntegrationTestConn(t *testing.T, streamName string, log logger.Logger) Connection {
-	conn, err := Connect([]string{os.Getenv("NATS_SERVER_URL")}, log)
-	if err != nil {
-		t.Errorf("NATS connection could not be established: %v", err)
-		os.Exit(1)
-	}
-	if err := conn.deleteConsumer(streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Errorf("Could not delete consumers %s: %v.", streamName, err)
-	}
-	if err := conn.deleteStream(streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Errorf("Could not delete stream %s: %v.", streamName, err)
+	conn := &connection{
+		log: log,
 	}
 
-	if err := conn.createStream(streamName); err != nil {
+	nb := &natsBridge{
+		log: log,
+	}
+
+	var err error
+	url := os.Getenv("NATS_SERVER_URL")
+	if url == "" {
+		t.Error("Env-Var `NATS_SERVER_URL` is empty!")
+	}
+	nb.connection, err = nats.Connect(url)
+	if err != nil {
+		t.Error(fmt.Errorf("could not make NATS connection to %s: %w", url, err))
+	}
+
+	nb.jetStreamContext, err = nb.connection.JetStream()
+	if err != nil {
+		t.Error(err)
+	}
+
+	conn.nats = nb
+
+	if err := deleteConsumer(conn, nb, streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete consumers %s: %v.", streamName, err)
+	}
+	if err := deleteStream(nb, streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete stream %s: %v.", streamName, err)
+	}
+	if err := createStream(nb, streamName); err != nil {
 		t.Errorf("Stream %s could not be created: %v", streamName, err)
 	}
 	return conn
@@ -113,6 +164,15 @@ func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []st
 	return nil
 }
 
+func publishManyMessages(t *testing.T, conn Connection, subject string, messageCount int) {
+	var messages []string
+	for i := 0; i < messageCount; i++ {
+		messages = append(messages, fmt.Sprintf("msg-%d", i))
+	}
+
+	publishStringMessages(t, conn, subject, messages)
+}
+
 func publishStringMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
 	pub, err := conn.NewPublisher(NewPublisherArgs{
 		StreamName: integrationTestStreamName,
@@ -125,6 +185,30 @@ func publishStringMessages(t *testing.T, conn Connection, subject string, publis
 			Subject: subject,
 			MsgID:   fmt.Sprintf("msg-%d", idx),
 			Data:    []byte(msg),
+		}); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func publishTestMessageStructMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
+	pub, err := conn.NewPublisher(NewPublisherArgs{
+		StreamName: integrationTestStreamName,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	for idx, msg := range publishMessages {
+		dataAsBytes, err := json.Marshal(testMessagePayload{Message: msg})
+		if err != nil {
+			t.Error(err)
+		}
+
+		if err := pub.Publish(&OutMsg{
+			Subject: subject,
+			MsgID:   fmt.Sprintf("msg-%d", idx),
+			Data:    dataAsBytes,
 		}); err != nil {
 			t.Error(err)
 		}
@@ -150,8 +234,30 @@ func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string
 	return receivedMessages, nil
 }
 
+func retrieveTestMessageStructMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
+	var receivedMessages []string
+	done := make(chan bool)
+
+	handler := func(msg InMsg) error {
+		var data testMessagePayload
+		if err := json.Unmarshal(msg.Data(), &data); err != nil {
+			return err
+		}
+		receivedMessages = append(receivedMessages, data.Message)
+
+		if len(receivedMessages) == len(expectedMessages) {
+			done <- true
+		}
+		return nil
+	}
+
+	if err := waitFinishMsgHandler(sub, handler, done); err != nil {
+		return nil, err
+	}
+	return receivedMessages, nil
+}
+
 func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) error {
-	timeout := time.Millisecond * 200
 	if err := sub.Subscribe(handler); err != nil {
 		return err
 	}
@@ -159,7 +265,7 @@ func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) er
 	select {
 	case <-done:
 		return nil
-	case <-time.After(timeout):
+	case <-time.After(time.Millisecond * 200):
 		return nil
 	}
 }

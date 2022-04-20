@@ -1,5 +1,5 @@
-github.com/fond-of/logging.go v0.0.0-20220317134928-2f6aeb30616b h1:qvTV7P0XYKDcwYjUWbEr9ekTry6TksibjFM/b0kCIyo=
-github.com/fond-of/logging.go v0.0.0-20220317134928-2f6aeb30616b/go.mod h1:8uUxnKV/emJV2gaDKOXxI/pu3ZD233bfMo+V5KUddWQ=
+github.com/fond-of-vertigo/logger v0.0.0-20220420082518-27f029f18b0f h1:05pwGvLqfvd3TiaJaoOwXIFF9HvoVRMrMbx42bR9x5M=
+github.com/fond-of-vertigo/logger v0.0.0-20220420082518-27f029f18b0f/go.mod h1:YxVjEHhE3bvHiJITJ0N5IRLVOQ7Lc9xHkyGs9yupx2M=
 github.com/golang/protobuf v1.4.0-rc.1/go.mod h1:ceaxUfeHdC40wWswd/P6IGgMaK3YpKi5j83Wpe3EHw8=
 github.com/golang/protobuf v1.4.0-rc.1.0.20200221234624-67d41d38c208/go.mod h1:xKAWHe0F5eneWXFV3EuXVDTCmh+JuBKY0li0aMyXATA=
 github.com/golang/protobuf v1.4.0-rc.2/go.mod h1:LlEzMj4AhA7rCAGe4KMBDvJI+AwstrUpVNzEA03Pprs=
