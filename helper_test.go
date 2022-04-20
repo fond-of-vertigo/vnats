@@ -1,6 +1,7 @@
 package vnats
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/fond-of/logging.go/logger"
@@ -181,12 +182,59 @@ func publishStringMessages(t *testing.T, conn Connection, subject string, publis
 	}
 }
 
+func publishTestMessageStructMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
+	pub, err := conn.NewPublisher(NewPublisherArgs{
+		StreamName: integrationTestStreamName,
+	})
+	if err != nil {
+		t.Error(err)
+	}
+
+	for idx, msg := range publishMessages {
+		dataAsBytes, err := json.Marshal(testMessagePayload{Message: msg})
+		if err != nil {
+			t.Error(err)
+		}
+
+		if err := pub.Publish(&OutMsg{
+			Subject: subject,
+			MsgID:   fmt.Sprintf("msg-%d", idx),
+			Data:    dataAsBytes,
+		}); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
 func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
 	var receivedMessages []string
 	done := make(chan bool)
 
 	handler := func(msg InMsg) error {
 		receivedMessages = append(receivedMessages, string(msg.Data()))
+
+		if len(receivedMessages) == len(expectedMessages) {
+			done <- true
+		}
+		return nil
+	}
+
+	if err := waitFinishMsgHandler(sub, handler, done); err != nil {
+		return nil, err
+	}
+	return receivedMessages, nil
+}
+
+func retrieveTestMessageStructMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
+	var receivedMessages []string
+	done := make(chan bool)
+
+	handler := func(msg InMsg) error {
+		var data testMessagePayload
+		if err := json.Unmarshal(msg.Data(), &data); err != nil {
+			return err
+		}
+		receivedMessages = append(receivedMessages, data.Message)
 
 		if len(receivedMessages) == len(expectedMessages) {
 			done <- true
