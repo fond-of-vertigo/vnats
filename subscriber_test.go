@@ -8,123 +8,163 @@ import (
 )
 
 type subscribeStringsConfig struct {
+	name             string
 	publishMessages  []string
 	expectedMessages []string
 	mode             SubscriptionMode
 	wantErr          bool
 }
 
-var subscriberTestCases = []subscribeStringsConfig{
-	{[]string{}, []string{}, MultipleSubscribersAllowed, false},
-	{[]string{}, []string{}, SingleSubscriberStrictMessageOrder, false},
-	{[]string{"hello", "world"}, []string{"hello", "world"}, SingleSubscriberStrictMessageOrder, false},
-	{[]string{"hello", "world"}, []string{"world", "hello"}, SingleSubscriberStrictMessageOrder, true},
-	{[]string{"hello", "world"}, []string{"hello", "world"}, MultipleSubscribersAllowed, false},
-	{[]string{"hello", "world"}, []string{"world", "hello"}, MultipleSubscribersAllowed, false},
-	{[]string{"hello", "world"}, []string{"world"}, MultipleSubscribersAllowed, true},
-	{[]string{"hello", "world"}, []string{"world"}, SingleSubscriberStrictMessageOrder, true},
-}
-
 func TestSubscriber_Subscribe_Strings(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
+	var tests = []subscribeStringsConfig{
+		{
+			name:             "Publish in mode: SingleSubscriberStrictMessageOrder empty payload",
+			publishMessages:  []string{},
+			expectedMessages: []string{},
+			mode:             MultipleSubscribersAllowed,
+			wantErr:          false,
+		},
+		{
+			name:             "Publish in mode: SingleSubscriberStrictMessageOrder empty payload",
+			publishMessages:  []string{},
+			expectedMessages: []string{},
+			mode:             SingleSubscriberStrictMessageOrder,
+			wantErr:          false},
+		{
+			name:             "Publish in mode: SingleSubscriberStrictMessageOrder, no error expected",
+			publishMessages:  []string{"hello", "world"},
+			expectedMessages: []string{"hello", "world"},
+			mode:             SingleSubscriberStrictMessageOrder,
+			wantErr:          false},
+		{
+			name:             "Publish in mode: SingleSubscriberStrictMessageOrder, wrong msg order, error expected",
+			publishMessages:  []string{"hello", "world"},
+			expectedMessages: []string{"world", "hello"},
+			mode:             SingleSubscriberStrictMessageOrder,
+			wantErr:          true},
+		{
+			name:             "Publish in mode: MultipleSubscribersAllowed, no error expected",
+			publishMessages:  []string{"hello", "world"},
+			expectedMessages: []string{"hello", "world"},
+			mode:             MultipleSubscribersAllowed,
+			wantErr:          false},
+		{
+			name:             "Publish in mode: MultipleSubscribersAllowed with ignored order, no error expected",
+			publishMessages:  []string{"hello", "world"},
+			expectedMessages: []string{"world", "hello"},
+			mode:             MultipleSubscribersAllowed,
+			wantErr:          false},
+		{
+			name:             "Publish in mode: MultipleSubscribersAllowed wrong received message, error expected",
+			publishMessages:  []string{"hello", "world"},
+			expectedMessages: []string{"world"},
+			mode:             MultipleSubscribersAllowed,
+			wantErr:          true},
+		{
+			name:             "Publish in mode: SingleSubscriberStrictMessageOrder wrong received message, error expected",
+			publishMessages:  []string{"hello", "world"},
+			expectedMessages: []string{"world"},
+			mode:             SingleSubscriberStrictMessageOrder,
+			wantErr:          true},
+	}
 	subject := integrationTestStreamName + ".PubSubTest.string"
 
-	for _, test := range subscriberTestCases {
-		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+	dataTypeValidators := []func(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error{
+		subscriberStringTest,
+		subscriberStructTest,
+	}
+	for validatorIdx, typeValidation := range dataTypeValidators {
+		t.Logf("Running datatype-validator #%d", validatorIdx)
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
 
-		publishStringMessages(t, conn, subject, test.publishMessages)
+				sub, err := conn.NewSubscriber(NewSubscriberArgs{
+					ConsumerName: "TestConsumer",
+					Subject:      subject,
+					Mode:         tt.mode,
+				})
+				if err != nil {
+					t.Error(err)
+				}
 
-		sub, err := conn.NewSubscriber(NewSubscriberArgs{
-			ConsumerName: "TestConsumer",
-			Subject:      subject,
-			Mode:         test.mode,
-		})
-		if err != nil {
-			t.Error(err)
-		}
+				if err := typeValidation(t, conn, sub, tt); err != nil {
+					t.Error(err)
+				}
 
-		receivedMessages, err := retrieveStringMessages(sub, test.expectedMessages)
-		if err != nil {
-			t.Error(err)
-		}
-
-		switch test.mode {
-		case MultipleSubscribersAllowed:
-			if err := cmpStringSlicesIgnoreOrder(test.expectedMessages, receivedMessages); err != nil && !test.wantErr {
-				t.Error(err)
-			} else if test.wantErr && err == nil {
-				t.Error("Should fail, but no error was thrown!")
-			}
-
-		case SingleSubscriberStrictMessageOrder:
-			if len(test.expectedMessages) == 0 && len(receivedMessages) == 0 {
-				continue
-			}
-			equal := reflect.DeepEqual(receivedMessages, test.expectedMessages)
-			if !equal && !test.wantErr {
-				t.Errorf("Got %v, expected %v\n", receivedMessages, test.expectedMessages)
-			} else if equal && test.wantErr {
-				t.Error("Should fail, but no error was thrown!")
-			}
-		}
-		if err := conn.Close(); err != nil {
-			t.Error(err)
+				if err := conn.Close(); err != nil {
+					t.Error(err)
+				}
+			})
 		}
 	}
 }
 
-func TestSubscriber_Subscribe_Struct(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
+func subscriberStringTest(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error {
+	subject := integrationTestStreamName + ".PubSubTest.string"
+	publishStringMessages(t, conn, subject, config.publishMessages)
+
+	receivedMessages, err := retrieveStringMessages(sub, config.expectedMessages)
+	if err != nil {
+		t.Error(err)
 	}
-	subject := integrationTestStreamName + ".PubSubTest.struct"
 
-	for _, test := range subscriberTestCases {
-		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
-
-		publishTestMessageStructMessages(t, conn, subject, test.publishMessages)
-
-		sub, err := conn.NewSubscriber(NewSubscriberArgs{
-			ConsumerName: "TestConsumer",
-			Subject:      subject,
-			Mode:         test.mode,
-		})
-		if err != nil {
-			t.Error(err)
+	switch config.mode {
+	case MultipleSubscribersAllowed:
+		if err := cmpStringSlicesIgnoreOrder(config.expectedMessages, receivedMessages); err != nil && !config.wantErr {
+			return err
+		} else if config.wantErr && err == nil {
+			return fmt.Errorf("should fail, but no error was thrown")
 		}
 
-		receivedMessages, err := retrieveTestMessageStructMessages(sub, test.expectedMessages)
-		if err != nil {
-			t.Error(err)
+	case SingleSubscriberStrictMessageOrder:
+		if len(config.expectedMessages) == 0 && len(receivedMessages) == 0 {
+			return nil
 		}
-
-		switch test.mode {
-		case MultipleSubscribersAllowed:
-			if err := cmpStringSlicesIgnoreOrder(test.expectedMessages, receivedMessages); err != nil && !test.wantErr {
-				t.Error(err)
-			} else if test.wantErr && err == nil {
-				t.Error("Should fail, but no error was thrown!")
-			}
-
-		case SingleSubscriberStrictMessageOrder:
-			if len(test.expectedMessages) == 0 && len(receivedMessages) == 0 {
-				continue
-			}
-			equal := reflect.DeepEqual(receivedMessages, test.expectedMessages)
-			if !equal && !test.wantErr {
-				t.Errorf("Got %v, expected %v\n", receivedMessages, test.expectedMessages)
-			} else if equal && test.wantErr {
-				t.Error("Should fail, but no error was thrown!")
-			}
-		}
-
-		if err := conn.Close(); err != nil {
-			t.Error(err)
+		equal := reflect.DeepEqual(receivedMessages, config.expectedMessages)
+		if !equal && !config.wantErr {
+			t.Errorf("Got %v, expected %v\n", receivedMessages, config.expectedMessages)
+		} else if equal && config.wantErr {
+			return fmt.Errorf("should fail, but no error was thrown")
 		}
 	}
+	return nil
 }
+
+func subscriberStructTest(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error {
+	subject := integrationTestStreamName + ".PubSubTest.string"
+	publishTestMessageStructMessages(t, conn, subject, config.publishMessages)
+
+	receivedMessages, err := retrieveTestMessageStructMessages(sub, config.expectedMessages)
+	if err != nil {
+		t.Error(err)
+	}
+
+	switch config.mode {
+	case MultipleSubscribersAllowed:
+		if err := cmpStringSlicesIgnoreOrder(config.expectedMessages, receivedMessages); err != nil && !config.wantErr {
+			return err
+		} else if config.wantErr && err == nil {
+			return fmt.Errorf("should fail, but no error was thrown")
+		}
+
+	case SingleSubscriberStrictMessageOrder:
+		if len(config.expectedMessages) == 0 && len(receivedMessages) == 0 {
+			return nil
+		}
+		equal := reflect.DeepEqual(receivedMessages, config.expectedMessages)
+		if !equal && !config.wantErr {
+			t.Errorf("Got %v, expected %v\n", receivedMessages, config.expectedMessages)
+		} else if equal && config.wantErr {
+			return fmt.Errorf("should fail, but no error was thrown")
+		}
+	}
+	return nil
+}
+
 func TestSubscriber_CallTwice(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -153,69 +193,71 @@ func TestSubscriber_CallTwice(t *testing.T) {
 	}
 }
 
-type restDownConfig struct {
-	mode                    SubscriptionMode
-	minCallFirstMsg         int
-	minCallSecondMsg        int
-	maxCallSecondMsg        int
-	waitUntilCheckCallCount time.Duration
-}
-
-var restDownTestCases = []restDownConfig{
-	{
-		mode:                    SingleSubscriberStrictMessageOrder,
-		minCallFirstMsg:         2,
-		minCallSecondMsg:        0,
-		maxCallSecondMsg:        0,
-		waitUntilCheckCallCount: defaultNakDelay * 2,
-	},
-	{
-		mode:                    MultipleSubscribersAllowed,
-		minCallFirstMsg:         2,
-		minCallSecondMsg:        2,
-		maxCallSecondMsg:        3,
-		waitUntilCheckCallCount: defaultNakDelay * 2,
-	},
-}
-
 func TestSubscriberAlwaysFails(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-
+	var restDownTestCases = []struct {
+		name                    string
+		mode                    SubscriptionMode
+		minCallFirstMsg         int
+		minCallSecondMsg        int
+		maxCallSecondMsg        int
+		waitUntilCheckCallCount time.Duration
+	}{
+		{
+			name:                    "Strict-In-Order subscriber always fails, never calls second message",
+			mode:                    SingleSubscriberStrictMessageOrder,
+			minCallFirstMsg:         2,
+			minCallSecondMsg:        0,
+			maxCallSecondMsg:        0,
+			waitUntilCheckCallCount: defaultNakDelay * 2,
+		},
+		{
+			name:                    "MultipleSubscribersAllowed always fails, tries second message",
+			mode:                    MultipleSubscribersAllowed,
+			minCallFirstMsg:         2,
+			minCallSecondMsg:        2,
+			maxCallSecondMsg:        3,
+			waitUntilCheckCallCount: defaultNakDelay * 2,
+		},
+	}
 	subject := integrationTestStreamName + ".subscriberAlwaysFails"
 	for _, test := range restDownTestCases {
-		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
-		publishStringMessages(t, conn, subject, []string{"hello", "world"})
-		sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, test.mode)
+		t.Run(test.name, func(t *testing.T) {
 
-		callCountHello, callCountWorld := 0, 0
+			conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+			publishStringMessages(t, conn, subject, []string{"hello", "world"})
+			sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, test.mode)
 
-		handler := func(msg InMsg) error {
-			switch string(msg.Data()) {
-			case "hello":
-				callCountHello += 1
-			case "world":
-				callCountWorld += 1
+			callCountHello, callCountWorld := 0, 0
+
+			handler := func(msg InMsg) error {
+				switch string(msg.Data()) {
+				case "hello":
+					callCountHello += 1
+				case "world":
+					callCountWorld += 1
+				}
+				return fmt.Errorf("REST-Endpoint is down, retry later")
 			}
-			return fmt.Errorf("REST-Endpoint is down, retry later")
-		}
 
-		if err := sub.Subscribe(handler); err != nil {
-			t.Error(err)
-		}
+			if err := sub.Subscribe(handler); err != nil {
+				t.Error(err)
+			}
 
-		time.Sleep(test.waitUntilCheckCallCount)
+			time.Sleep(test.waitUntilCheckCallCount)
 
-		if callCountHello < test.minCallFirstMsg {
-			t.Errorf("First message was not retried more than %v in %v.", test.minCallSecondMsg, test.waitUntilCheckCallCount)
-		}
-		if callCountWorld < test.minCallSecondMsg || callCountWorld > test.maxCallSecondMsg {
-			t.Errorf("Second message was not called the correct amount: %v < %v < %v in %v.", test.minCallSecondMsg, callCountWorld, test.maxCallSecondMsg, test.waitUntilCheckCallCount)
-		}
-		if err := conn.Close(); err != nil {
-			t.Error(err)
-		}
+			if callCountHello < test.minCallFirstMsg {
+				t.Errorf("First message was not retried more than %v in %v.", test.minCallSecondMsg, test.waitUntilCheckCallCount)
+			}
+			if callCountWorld < test.minCallSecondMsg || callCountWorld > test.maxCallSecondMsg {
+				t.Errorf("Second message was not called the correct amount: %v < %v < %v in %v.", test.minCallSecondMsg, callCountWorld, test.maxCallSecondMsg, test.waitUntilCheckCallCount)
+			}
+			if err := conn.Close(); err != nil {
+				t.Error(err)
+			}
+		})
 	}
 }
 
@@ -293,36 +335,39 @@ func TestSubscriberMultiple(t *testing.T) {
 	}
 	subject := integrationTestStreamName + ".multipleSubscriber"
 
-	for _, test := range tests {
-		var s []*subscriptionState
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 
-		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+			var s []*subscriptionState
 
-		for idx, subConfig := range test.args.subscribers {
-			sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, subConfig.mode)
+			conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
 
-			subState := subscriptionState{subscriber: sub}
-			s = append(s, &subState)
+			for idx, subConfig := range tt.args.subscribers {
+				sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, subConfig.mode)
 
-			handler := makeHandlerSubscriber(t, subConfig.alwaysFail, &subState, idx)
+				subState := subscriptionState{subscriber: sub}
+				s = append(s, &subState)
 
-			if err := s[idx].subscriber.Subscribe(handler); err != nil && !test.wantErr {
-				t.Error(err)
+				handler := makeHandlerSubscriber(t, subConfig.alwaysFail, &subState, idx)
+
+				if err := s[idx].subscriber.Subscribe(handler); err != nil && !tt.wantErr {
+					t.Error(err)
+				}
 			}
-		}
 
-		publishManyMessages(t, conn, subject, test.args.publishMessages)
+			publishManyMessages(t, conn, subject, tt.args.publishMessages)
 
-		time.Sleep(test.args.waitUntilCheckCallCount)
+			time.Sleep(tt.args.waitUntilCheckCallCount)
 
-		for idx, subState := range s {
-			if subState.FailedMsgs < test.args.subscribers[idx].minFailedMsgs {
-				t.Errorf("Subscriber %d: Too less messages failed %d < %d", idx, subState.FailedMsgs, test.args.subscribers[idx].minFailedMsgs)
+			for idx, subState := range s {
+				if subState.FailedMsgs < tt.args.subscribers[idx].minFailedMsgs {
+					t.Errorf("Subscriber %d: Too less messages failed %d < %d", idx, subState.FailedMsgs, tt.args.subscribers[idx].minFailedMsgs)
+				}
+				if subState.SuccessfulMsgs < tt.args.subscribers[idx].minSuccessfulMsgs {
+					t.Errorf("Subscriber %d: Too less messages were successful %d < %d", idx, subState.SuccessfulMsgs, tt.args.subscribers[idx].minSuccessfulMsgs)
+				}
 			}
-			if subState.SuccessfulMsgs < test.args.subscribers[idx].minSuccessfulMsgs {
-				t.Errorf("Subscriber %d: Too less messages were successful %d < %d", idx, subState.SuccessfulMsgs, test.args.subscribers[idx].minSuccessfulMsgs)
-			}
-		}
+		})
 	}
 }
 
