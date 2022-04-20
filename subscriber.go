@@ -34,6 +34,8 @@ func (s *subscriber) Subscribe(handler MsgHandler) (err error) {
 		return fmt.Errorf("handler is already set, don't call Subscribe() multiple times")
 	}
 
+	s.handler = handler
+
 	go func() {
 		for {
 			select {
