@@ -13,7 +13,8 @@ For using vnats you will need to
 
 ### Publisher
 
-The publisher expects an `interface`, which makes it useful for publishing structs.
+The publisher sends a slice of bytes `[]byte` to a subject. If a struct or  different type should be sent,
+the user has to (un-)marshal the payload.
 
 #### Example
 
@@ -87,8 +88,8 @@ func main() {
 ### Subscriber
 
 We use a pull-based subscriber by default, which scales horizontally. The subscriber is asynchronous and pulls
-continuously for new messages. A message handler is needed to process each message. The message will be either passed 
-as a predefined type, a string or a slice of bytes `[]byte`.
+continuously for new messages. A message handler is needed to process each message. The message will be passed as 
+a slice of bytes `[]byte`.
 
 **Important**: The `MsgHandler` **MUST** finish its task under 30 seconds. Longer tasks must be only triggered and
 executed asynchronously.
@@ -150,7 +151,7 @@ func main() {
 
 }
 
-// MsgHandler returns the specified type and tries to unmarshal the data.
+// MsgHandler returns the data in a slice of bytes inside the InMsg struct.
 func msgHandler(msg vnats.InMsg) error {
 	var p Product
 	if err := json.Unmarshal(msg.Data(), &p);  err != nil {
