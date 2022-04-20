@@ -22,11 +22,11 @@ func Test_publisher_Publish(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		/*{
+		{
 			name: "Publish test message",
 
 			args: args{
-				data:       testMessagePayload{Message: "hello world"},
+				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    "MESSAGES.Important",
 				msgId:      "msg-001",
@@ -37,7 +37,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to subject not starting with streamName",
 
 			args: args{
-				data:       testMessagePayload{Message: "hello world"},
+				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    "Important",
 				msgId:      "msg-001",
@@ -48,7 +48,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to empty subject",
 
 			args: args{
-				data:       testMessagePayload{Message: "hello world"},
+				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    "",
 				msgId:      "msg-001",
@@ -59,7 +59,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to empty streamName",
 
 			args: args{
-				data:       testMessagePayload{Message: "hello world"},
+				data:       []byte("test message"),
 				streamName: "",
 				subject:    "MESSAGES",
 				msgId:      "msg-001",
@@ -70,7 +70,7 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to empty streamName & empty subject",
 
 			args: args{
-				data:       testMessagePayload{Message: "hello world"},
+				data:       []byte("test message"),
 				streamName: "",
 				subject:    "",
 				msgId:      "msg-001",
@@ -81,22 +81,12 @@ func Test_publisher_Publish(t *testing.T) {
 			name: "Publish to subject starting with .",
 
 			args: args{
-				data:       testMessagePayload{Message: "hello world"},
+				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    ".MESSAGES.Important",
 				msgId:      "msg-001",
 			},
 			wantErr: true,
-		}, */{
-			name: "Publish a string",
-
-			args: args{
-				data:       []byte("test message"),
-				streamName: "MESSAGES",
-				subject:    "MESSAGES.Important",
-				msgId:      "msg-001",
-			},
-			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
