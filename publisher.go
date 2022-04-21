@@ -23,25 +23,25 @@ type publisher struct {
 // By using a struct we are open for adding new arguments in the future
 // and the caller can omit arguments where the default value is OK.
 type OutMsg struct {
-	// Subject is the destination subject name, like "PRODUCTS.new"
+	// Subject represents the destination subject name, like "PRODUCTS.new"
 	Subject string
 
-	// Reply contains the subject name where a reply should be sent to.
-	// This value is optional.
+	// Reply represents an optional subject name where a reply message should be sent to.
+	// This value is just distributed, whether the response is sent to the specified subject depends on the Subscriber.
 	Reply string
 
-	// MsgID must be unique value for the content, like a hash value.
-	// So the same data must have the MsgID, no matter how often you send it.
+	// MsgID represents a unique value for the message, like a hash value of Data.
+	// Semantically equal messages must lead to the same MsgID at any time.
+	// E.g. two messages with the same Data must have the same MsgID.
+	//
+	// The MsgID is used for deduplication.
 	MsgID string
 
-	// Data contains the data to send. Depends on the encoding how this value
-	// is treated. If JSON encoding is enabled, this can be a struct which is the
-	// marshalled to JSON automatically.
-	// If raw encoding is used, this must be a byte array or a string.
+	// Data represents the raw byte data to send. The data is sent as-is.
 	Data []byte
 
-	// Header contains optional headers for the message, like HTTP headers.
-	Header *nats.Header
+	// Header represents the optional Header for the message.
+	Header Header
 }
 
 func (p *publisher) Publish(outMsg *OutMsg) error {
@@ -49,16 +49,17 @@ func (p *publisher) Publish(outMsg *OutMsg) error {
 		return err
 	}
 
-	p.log.Debugf("Publish message with msg-ID: %s @ %s\n", outMsg.MsgID, outMsg.Subject)
+	p.log.Debugf("Publish message with msgID: %s @ %s\n", outMsg.MsgID, outMsg.Subject)
 	msg := nats.Msg{
 		Subject: outMsg.Subject,
 		Reply:   outMsg.Reply,
 		Data:    outMsg.Data,
+		Header:  nats.Header(outMsg.Header),
 	}
 
 	err := p.conn.nats.PublishMsg(&msg, outMsg.MsgID)
 	if err != nil {
-		return fmt.Errorf("message with msg-ID: %s @ %s could not be published: %w", outMsg.MsgID, outMsg.Subject, err)
+		return fmt.Errorf("message with msgID: %s @ %s could not be published: %w", outMsg.MsgID, outMsg.Subject, err)
 	}
 	return nil
 }

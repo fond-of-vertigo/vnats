@@ -7,6 +7,7 @@ type subscription interface {
 	Unsubscribe() error
 	Drain() error
 }
+
 type natsSubscription struct {
 	streamSubscription *nats.Subscription
 }

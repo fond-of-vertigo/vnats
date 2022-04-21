@@ -15,7 +15,7 @@ type bridge interface {
 	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
 
 	// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
-	// The first token of a subject will be interpreted as the streamName.
+	// The first token, seperated by dots, of a subject will be interpreted as the streamName.
 	CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error)
 
 	// Servers returns the list of NATS servers.
@@ -27,10 +27,9 @@ type bridge interface {
 	// Drain will put a connection into a drain state. All subscriptions will
 	// immediately be put into a drain state. Upon completion, the publishers
 	// will be drained and can not publish any additional messages. Upon draining
-	// of the publishers, the connection will be closed. Use the ClosedCB()
-	// option to know when the connection has moved from draining to closed.
+	// of the publishers, the connection will be closed.
 	//
-	// See note in subscription.Drain for JetStream subscriptions.
+	// See notes for nats.Conn.Drain
 	Drain() error
 }
 

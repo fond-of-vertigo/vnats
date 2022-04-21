@@ -57,14 +57,14 @@ func (s *subscriber) fetchMessages() {
 		if errors.Is(err, nats.ErrTimeout) {
 			s.log.Debugf("No new messages, timeout")
 		} else {
-			s.log.Errorf("Failed to receive msg: %s", err.Error())
+			s.log.Errorf("Failed to receive msg: %s", err)
 		}
 
 		return
 	}
 
 	if s.log.IsDebugEnabled() {
-		s.log.Debugf("Received Message - MsgID: %s, Data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
+		s.log.Debugf("Received message - msgID: %s, data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
 	}
 
 	inMsg := makeInMsg(msg)

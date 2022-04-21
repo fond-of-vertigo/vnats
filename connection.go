@@ -19,8 +19,8 @@ type Connection interface {
 }
 
 // SubscriptionMode defines how the consumer and its subscriber are configured. This mode must be set accordingly
-// to the use-case. If the order of messages should be strictly ordered, SingleSubscriberStrictMessageOrder should be used.
-// If the message order is not important, but horizontal scaling is, use MultipleSubscribersAllowed.
+// to the use-case. If the order of messages should be strictly ordered, SingleSubscriberStrictMessageOrder should be
+// used. If the message order is not important, but horizontal scaling is, use MultipleSubscribersAllowed.
 type SubscriptionMode int
 
 const (
@@ -42,16 +42,14 @@ type connection struct {
 
 // Connect returns Connection to a NATS server/ cluster and enables Publisher and Subscriber creation.
 func Connect(servers []string, logger logger.Logger) (Connection, error) {
-	conn := &connection{
-		log: logger,
-	}
-
-	var err error
-	conn.nats, err = makeNATSBridge(servers, logger)
+	bridge, err := makeNATSBridge(servers, logger)
 	if err != nil {
 		return nil, fmt.Errorf("NATS connection could not be created: %w", err)
 	}
-
+	conn := &connection{
+		log:  logger,
+		nats: bridge,
+	}
 	return conn, nil
 }
 
@@ -76,12 +74,12 @@ type NewSubscriberArgs struct {
 	// name of the service.
 	ConsumerName string
 
-	// Subject defines which stream should be consumed.
+	// Subject defines which subjects of the stream should be subscribed.
 	// Examples:
-	//  "ORDERS.new" -> all new orders
-	//  "ORDERS.*"   -> all orders the are directly under "ORDERS", like "ORDERS.new", "ORDERS.processed",
+	//  "ORDERS.new" -> subscribe subject "new" of stream "ORDERS"
+	//  "ORDERS.>"   -> subscribe all subjects in any level of stream "ORDERS".
+	//  "ORDERS.*"   -> subscribe all direct subjects of stream "ORDERS", like "ORDERS.new", "ORDERS.processed",
 	//                  but not "ORDERS.new.error".
-	//  "ORDERS.>"   -> everything under orders, no matter how deep the path goes on, like "ORDERS.a.b.c.d.e".
 	Subject string
 
 	// Mode defines the constraints of the subscription. Default is MultipleSubscribersAllowed.
