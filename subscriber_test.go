@@ -80,7 +80,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 		t.Logf("Running datatype-validator #%d", validatorIdx)
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+				conn := makeIntegrationTestConn(t, integrationTestStreamName)
 
 				sub, err := conn.NewSubscriber(NewSubscriberArgs{
 					ConsumerName: "TestConsumer",
@@ -170,7 +170,7 @@ func TestSubscriber_CallTwice(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 	subject := integrationTestStreamName + ".subscribeTwice"
-	conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+	conn := makeIntegrationTestConn(t, integrationTestStreamName)
 	publishStringMessages(t, conn, subject, []string{})
 	sub, err := conn.NewSubscriber(NewSubscriberArgs{
 		ConsumerName: "TestConsumer",
@@ -226,7 +226,7 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 	for _, test := range restDownTestCases {
 		t.Run(test.name, func(t *testing.T) {
 
-			conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+			conn := makeIntegrationTestConn(t, integrationTestStreamName)
 			publishStringMessages(t, conn, subject, []string{"hello", "world"})
 			sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, test.mode)
 
@@ -340,7 +340,7 @@ func TestSubscriberMultiple(t *testing.T) {
 
 			var s []*subscriptionState
 
-			conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+			conn := makeIntegrationTestConn(t, integrationTestStreamName)
 
 			for idx, subConfig := range tt.args.subscribers {
 				sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, subConfig.mode)

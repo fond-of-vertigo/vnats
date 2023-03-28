@@ -2,7 +2,6 @@ package vnats
 
 import (
 	"fmt"
-	"github.com/fond-of-vertigo/logger"
 	"io"
 )
 
@@ -34,23 +33,36 @@ const (
 	SingleSubscriberStrictMessageOrder
 )
 
+type Log func(format string, a ...interface{})
+
 type connection struct {
 	nats        bridge
-	log         logger.Logger
+	log         Log
 	subscribers []*subscriber
 }
+type Option func(*connection)
 
 // Connect returns Connection to a NATS server/ cluster and enables Publisher and Subscriber creation.
-func Connect(servers []string, logger logger.Logger) (Connection, error) {
-	bridge, err := makeNATSBridge(servers, logger)
+func Connect(servers []string, options ...Option) (Connection, error) {
+	conn := &connection{
+		log: func(_ string, _ ...interface{}) {},
+	}
+
+	conn.applyOptions(options...)
+
+	bridge, err := makeNATSBridge(servers, conn.log)
 	if err != nil {
 		return nil, fmt.Errorf("NATS connection could not be created: %w", err)
 	}
-	conn := &connection{
-		log:  logger,
-		nats: bridge,
-	}
+
+	conn.nats = bridge
 	return conn, nil
+}
+
+func (c *connection) applyOptions(options ...Option) {
+	for _, option := range options {
+		option(c)
+	}
 }
 
 // NewPublisherArgs contains the arguments for creating a new publisher.
@@ -98,7 +110,7 @@ func (c *connection) NewSubscriber(args NewSubscriberArgs) (Subscriber, error) {
 
 // Close closes the NATS connection and drains all subscriptions.
 func (c *connection) Close() error {
-	c.log.Infof("Draining and closing open subscriptions..")
+	c.log("Draining and closing open subscriptions..")
 	for _, sub := range c.subscribers {
 		if err := sub.subscription.Drain(); err != nil {
 			return err
@@ -107,12 +119,17 @@ func (c *connection) Close() error {
 		close(sub.quitSignal)
 
 	}
-	c.log.Infof("Closed all open subscriptions.")
-
-	c.log.Infof("Closing NATS connection...")
+	c.log("Closed all open subscriptions.")
+	c.log("Closing NATS connection...")
 	if err := c.nats.Drain(); err != nil {
 		return fmt.Errorf("NATS connection could not be closed: %w", err)
 	}
-	c.log.Infof("Closed NATS connection.")
+	c.log("Closed NATS connection.")
 	return nil
+}
+
+func WithLogger(log Log) Option {
+	return func(c *connection) {
+		c.log = log
+	}
 }
