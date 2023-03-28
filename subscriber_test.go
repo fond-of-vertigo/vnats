@@ -79,7 +79,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 	}
 	subject := integrationTestStreamName + ".PubSubTest.string"
 
-	dataTypeValidators := []func(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error{
+	dataTypeValidators := []func(t *testing.T, conn *Connection, sub *Subscriber, config subscribeStringsConfig) error{
 		subscriberStringTest,
 		subscriberStructTest,
 	}
@@ -110,7 +110,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 	}
 }
 
-func subscriberStringTest(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error {
+func subscriberStringTest(t *testing.T, conn *Connection, sub *Subscriber, config subscribeStringsConfig) error {
 	subject := integrationTestStreamName + ".PubSubTest.string"
 	publishStringMessages(t, conn, subject, config.publishMessages)
 
@@ -141,7 +141,7 @@ func subscriberStringTest(t *testing.T, conn Connection, sub Subscriber, config 
 	return nil
 }
 
-func subscriberStructTest(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error {
+func subscriberStructTest(t *testing.T, conn *Connection, sub *Subscriber, config subscribeStringsConfig) error {
 	subject := integrationTestStreamName + ".PubSubTest.string"
 	publishTestMessageStructMessages(t, conn, subject, config.publishMessages)
 
@@ -213,7 +213,7 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 		waitUntilCheckCallCount time.Duration
 	}{
 		{
-			name:                    "Strict-In-Order subscriber always fails, never calls second message",
+			name:                    "Strict-In-Order Subscriber always fails, never calls second message",
 			mode:                    SingleSubscriberStrictMessageOrder,
 			minCallFirstMsg:         2,
 			minCallSecondMsg:        0,
@@ -275,7 +275,7 @@ type subscriberConfig struct {
 }
 
 type subscriptionState struct {
-	subscriber     Subscriber
+	subscriber     *Subscriber
 	SuccessfulMsgs int
 	FailedMsgs     int
 }
@@ -292,7 +292,7 @@ func TestSubscriberMultiple(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "One subscriber down, one up - messages will be handled by up subscriber",
+			name: "One Subscriber down, one up - messages will be handled by up Subscriber",
 			args: args{
 				subscribers: []subscriberConfig{
 					{
@@ -314,7 +314,7 @@ func TestSubscriberMultiple(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Both subscriber down, constantly retrieving naked messages",
+			name: "Both Subscriber down, constantly retrieving naked messages",
 			args: args{
 				subscribers: []subscriberConfig{
 					{

@@ -2,49 +2,36 @@ package vnats
 
 import (
 	"fmt"
-	"io"
 )
 
-type Connection interface {
-	io.Closer
-
-	// NewPublisher creates a publisher for the given streamName.
-	// If the streamInfo does not exist, it is created.
-	NewPublisher(args NewPublisherArgs) (Publisher, error)
-
-	// NewSubscriber creates a subscriber for the given consumer name and subject.
-	// Consumer will be created if it does not exist.
-	NewSubscriber(args NewSubscriberArgs) (Subscriber, error)
-}
-
-// SubscriptionMode defines how the consumer and its subscriber are configured. This mode must be set accordingly
+// SubscriptionMode defines how the consumer and its Subscriber are configured. This mode must be set accordingly
 // to the use-case. If the order of messages should be strictly ordered, SingleSubscriberStrictMessageOrder should be
 // used. If the message order is not important, but horizontal scaling is, use MultipleSubscribersAllowed.
 type SubscriptionMode int
 
 const (
-	// MultipleSubscribersAllowed mode (default) enables multiple subscriber of one consumer for horizontal scaling.
+	// MultipleSubscribersAllowed mode (default) enables multiple Subscriber of one consumer for horizontal scaling.
 	// The message order cannot be guaranteed when messages get NAKed/ MsgHandler for message returns error.
 	MultipleSubscribersAllowed SubscriptionMode = iota
 
 	// SingleSubscriberStrictMessageOrder mode enables strict order of messages. If messages get NAKed/ MsgHandler for
-	// message returns error, the subscriber of consumer will retry the failed message until resolved. This blocks the
+	// message returns error, the Subscriber of consumer will retry the failed message until resolved. This blocks the
 	// entire consumer, so that horizontal scaling is not effectively possible.
 	SingleSubscriberStrictMessageOrder
 )
 
 type Log func(format string, a ...interface{})
 
-type connection struct {
+type Connection struct {
 	nats        bridge
 	log         Log
-	subscribers []*subscriber
+	subscribers []*Subscriber
 }
-type Option func(*connection)
+type Option func(*Connection)
 
 // Connect returns Connection to a NATS server/ cluster and enables Publisher and Subscriber creation.
-func Connect(servers []string, options ...Option) (Connection, error) {
-	conn := &connection{
+func Connect(servers []string, options ...Option) (*Connection, error) {
+	conn := &Connection{
 		log: func(_ string, _ ...interface{}) {},
 	}
 
@@ -52,20 +39,20 @@ func Connect(servers []string, options ...Option) (Connection, error) {
 
 	bridge, err := makeNATSBridge(servers, conn.log)
 	if err != nil {
-		return nil, fmt.Errorf("NATS connection could not be created: %w", err)
+		return nil, fmt.Errorf("NATS Connection could not be created: %w", err)
 	}
 
 	conn.nats = bridge
 	return conn, nil
 }
 
-func (c *connection) applyOptions(options ...Option) {
+func (c *Connection) applyOptions(options ...Option) {
 	for _, option := range options {
 		option(c)
 	}
 }
 
-// NewPublisherArgs contains the arguments for creating a new publisher.
+// NewPublisherArgs contains the arguments for creating a new Publisher.
 // By using a struct we are open for adding new arguments in the future
 // and the caller can omit arguments where the default value is OK.
 type NewPublisherArgs struct {
@@ -74,11 +61,7 @@ type NewPublisherArgs struct {
 	StreamName string
 }
 
-func (c *connection) NewPublisher(args NewPublisherArgs) (Publisher, error) {
-	return makePublisher(c, &args)
-}
-
-// NewSubscriberArgs contains the arguments for creating a new subscriber.
+// NewSubscriberArgs contains the arguments for creating a new Subscriber.
 // By using a struct we are open for adding new arguments in the future
 // and the caller can omit arguments where the default value is OK.
 type NewSubscriberArgs struct {
@@ -99,17 +82,8 @@ type NewSubscriberArgs struct {
 	Mode SubscriptionMode
 }
 
-func (c *connection) NewSubscriber(args NewSubscriberArgs) (Subscriber, error) {
-	sub, err := makeSubscriber(c, &args)
-	if err != nil {
-		return nil, err
-	}
-	c.subscribers = append(c.subscribers, sub)
-	return sub, nil
-}
-
-// Close closes the NATS connection and drains all subscriptions.
-func (c *connection) Close() error {
+// Close closes the NATS Connection and drains all subscriptions.
+func (c *Connection) Close() error {
 	c.log("Draining and closing open subscriptions..")
 	for _, sub := range c.subscribers {
 		if err := sub.subscription.Drain(); err != nil {
@@ -120,16 +94,16 @@ func (c *connection) Close() error {
 
 	}
 	c.log("Closed all open subscriptions.")
-	c.log("Closing NATS connection...")
+	c.log("Closing NATS Connection...")
 	if err := c.nats.Drain(); err != nil {
-		return fmt.Errorf("NATS connection could not be closed: %w", err)
+		return fmt.Errorf("NATS Connection could not be closed: %w", err)
 	}
-	c.log("Closed NATS connection.")
+	c.log("Closed NATS Connection.")
 	return nil
 }
 
 func WithLogger(log Log) Option {
-	return func(c *connection) {
+	return func(c *Connection) {
 		c.log = log
 	}
 }

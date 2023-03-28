@@ -2,21 +2,39 @@ package vnats
 
 import (
 	"fmt"
+	"github.com/nats-io/nats.go"
 	"strings"
 	"time"
-
-	"github.com/nats-io/nats.go"
 )
 
-type Publisher interface {
-	// Publish sends the message (data) to the given subject.
-	Publish(outMsg *OutMsg) error
-}
-
-type publisher struct {
-	conn       *connection
+type Publisher struct {
+	conn       *Connection
 	streamName string
 	log        Log
+}
+
+func (c *Connection) NewPublisher(args NewPublisherArgs) (*Publisher, error) {
+	if err := validateStreamName(args.StreamName); err != nil {
+		return nil, err
+	}
+	_, err := c.nats.GetOrAddStream(&nats.StreamConfig{
+		Name:       args.StreamName,
+		Subjects:   []string{args.StreamName + ".>"},
+		Storage:    defaultStorageType,
+		Replicas:   len(c.nats.Servers()),
+		Duplicates: defaultDuplicationWindow,
+		MaxAge:     time.Hour * 24 * 30,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Publisher could not be created: %w", err)
+	}
+
+	p := &Publisher{
+		conn:       c,
+		log:        c.log,
+		streamName: args.StreamName,
+	}
+	return p, nil
 }
 
 // OutMsg contains the arguments publishing a new message.
@@ -44,7 +62,8 @@ type OutMsg struct {
 	Header Header
 }
 
-func (p *publisher) Publish(outMsg *OutMsg) error {
+// Publish sends the message (data) to the given subject.
+func (p *Publisher) Publish(outMsg *OutMsg) error {
 	if err := validateSubject(outMsg.Subject, p.streamName); err != nil {
 		return err
 	}
@@ -61,30 +80,6 @@ func (p *publisher) Publish(outMsg *OutMsg) error {
 		return fmt.Errorf("message with msgID: %s @ %s could not be published: %w", outMsg.MsgID, outMsg.Subject, err)
 	}
 	return nil
-}
-
-func makePublisher(conn *connection, args *NewPublisherArgs) (*publisher, error) {
-	if err := validateStreamName(args.StreamName); err != nil {
-		return nil, err
-	}
-	_, err := conn.nats.GetOrAddStream(&nats.StreamConfig{
-		Name:       args.StreamName,
-		Subjects:   []string{args.StreamName + ".>"},
-		Storage:    defaultStorageType,
-		Replicas:   len(conn.nats.Servers()),
-		Duplicates: defaultDuplicationWindow,
-		MaxAge:     time.Hour * 24 * 30,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("publisher could not be created: %w", err)
-	}
-
-	p := &publisher{
-		conn:       conn,
-		log:        conn.log,
-		streamName: args.StreamName,
-	}
-	return p, nil
 }
 
 func validateSubject(subject, streamName string) error {

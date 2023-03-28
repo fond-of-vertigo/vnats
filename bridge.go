@@ -24,10 +24,10 @@ type bridge interface {
 	// PublishMsg publishes a message with a context-dependent msgID to a subject.
 	PublishMsg(msg *nats.Msg, msgID string) error
 
-	// Drain will put a connection into a drain state. All subscriptions will
+	// Drain will put a Connection into a drain state. All subscriptions will
 	// immediately be put into a drain state. Upon completion, the publishers
 	// will be drained and can not publish any additional messages. Upon draining
-	// of the publishers, the connection will be closed.
+	// of the publishers, the Connection will be closed.
 	//
 	// See notes for nats.Conn.Drain
 	Drain() error
@@ -58,7 +58,7 @@ func makeNATSBridge(servers []string, log Log) (bridge, error) {
 			log("Connection closed: %v\n", nc.LastError())
 		}))
 	if err != nil {
-		return nil, fmt.Errorf("could not make NATS connection to %s: %w", url, err)
+		return nil, fmt.Errorf("could not make NATS Connection to %s: %w", url, err)
 	}
 
 	nb.jetStreamContext, err = nb.connection.JetStream()

@@ -89,8 +89,8 @@ func Test_publisher_Publish(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pub := &publisher{
-				conn:       makeTestConnection(t, tt.args.streamName, 1, tt.args.data, tt.args.msgId, nil),
+			pub := &Publisher{
+				conn:       makeTestConnection(t, tt.args.streamName, 1, tt.args.data, tt.args.msgID, nil),
 				log:        t.Logf,
 				streamName: tt.args.streamName,
 			}
@@ -100,7 +100,7 @@ func Test_publisher_Publish(t *testing.T) {
 				Data:    tt.args.data,
 			})
 			if (err != nil) != tt.wantErr {
-				t.Errorf("publisher.Publish() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Publisher.Publish() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -108,12 +108,12 @@ func Test_publisher_Publish(t *testing.T) {
 
 func Test_makePublisher(t *testing.T) {
 	type args struct {
-		conn       *connection
+		conn       *Connection
 		streamName string
 	}
 
 	natsTestBridge := makeTestNATSBridge(t, "PRODUCTS", 1, nil, "test")
-	connectionEmptySubscriptions := &connection{
+	connectionEmptySubscriptions := &Connection{
 		nats:        natsTestBridge,
 		log:         t.Logf,
 		subscribers: nil,
@@ -122,7 +122,7 @@ func Test_makePublisher(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *publisher
+		want    *Publisher
 		wantErr bool
 	}{
 		{
@@ -131,7 +131,7 @@ func Test_makePublisher(t *testing.T) {
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS",
 			},
-			want: &publisher{
+			want: &Publisher{
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS",
 			},
@@ -176,7 +176,7 @@ func Test_makePublisher(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := makePublisher(tt.args.conn, &NewPublisherArgs{
+			got, err := tt.args.conn.NewPublisher(NewPublisherArgs{
 				StreamName: tt.args.streamName,
 			})
 

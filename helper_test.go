@@ -67,8 +67,8 @@ func makeTestNATSBridge(t testing.TB, streamName string, currentSequenceNumber u
 	}
 }
 
-func makeTestConnection(t *testing.T, streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []*subscriber) *connection {
-	return &connection{
+func makeTestConnection(t *testing.T, streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []*Subscriber) *Connection {
+	return &Connection{
 		nats:        makeTestNATSBridge(t, streamName, currentSequenceNumber, wantData, wantMessageID),
 		log:         t.Logf,
 		subscribers: wantSubs,
@@ -91,7 +91,7 @@ func deleteStream(b *natsBridge, streamName string) error {
 	return b.jetStreamContext.DeleteStream(streamName)
 }
 
-func deleteConsumer(c *connection, b *natsBridge, streamName string) error {
+func deleteConsumer(c *Connection, b *natsBridge, streamName string) error {
 	for _, sub := range c.subscribers {
 		consumerName := sub.consumerName
 
@@ -106,8 +106,8 @@ func deleteConsumer(c *connection, b *natsBridge, streamName string) error {
 	return nil
 }
 
-func makeIntegrationTestConn(t *testing.T, streamName string) Connection {
-	conn := &connection{
+func makeIntegrationTestConn(t *testing.T, streamName string) *Connection {
+	conn := &Connection{
 		log: t.Logf,
 	}
 
@@ -122,7 +122,7 @@ func makeIntegrationTestConn(t *testing.T, streamName string) Connection {
 	}
 	nb.connection, err = nats.Connect(url)
 	if err != nil {
-		t.Error(fmt.Errorf("could not make NATS connection to %s: %w", url, err))
+		t.Error(fmt.Errorf("could not make NATS Connection to %s: %w", url, err))
 	}
 
 	nb.jetStreamContext, err = nb.connection.JetStream()
@@ -163,7 +163,7 @@ func cmpStringSlicesIgnoreOrder(expectedMessages, receivedMessages []string) err
 	return nil
 }
 
-func publishManyMessages(t *testing.T, conn Connection, subject string, messageCount int) {
+func publishManyMessages(t *testing.T, conn *Connection, subject string, messageCount int) {
 	var messages []string
 	for i := 0; i < messageCount; i++ {
 		messages = append(messages, fmt.Sprintf("msg-%d", i))
@@ -172,7 +172,7 @@ func publishManyMessages(t *testing.T, conn Connection, subject string, messageC
 	publishStringMessages(t, conn, subject, messages)
 }
 
-func publishStringMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
+func publishStringMessages(t *testing.T, conn *Connection, subject string, publishMessages []string) {
 	pub, err := conn.NewPublisher(NewPublisherArgs{
 		StreamName: integrationTestStreamName,
 	})
@@ -190,7 +190,7 @@ func publishStringMessages(t *testing.T, conn Connection, subject string, publis
 	}
 }
 
-func publishTestMessageStructMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
+func publishTestMessageStructMessages(t *testing.T, conn *Connection, subject string, publishMessages []string) {
 	pub, err := conn.NewPublisher(NewPublisherArgs{
 		StreamName: integrationTestStreamName,
 	})
@@ -214,7 +214,7 @@ func publishTestMessageStructMessages(t *testing.T, conn Connection, subject str
 	}
 }
 
-func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
+func retrieveStringMessages(sub *Subscriber, expectedMessages []string) ([]string, error) {
 	var receivedMessages []string
 	done := make(chan bool)
 
@@ -233,7 +233,7 @@ func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string
 	return receivedMessages, nil
 }
 
-func retrieveTestMessageStructMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
+func retrieveTestMessageStructMessages(sub *Subscriber, expectedMessages []string) ([]string, error) {
 	var receivedMessages []string
 	done := make(chan bool)
 
@@ -256,7 +256,7 @@ func retrieveTestMessageStructMessages(sub Subscriber, expectedMessages []string
 	return receivedMessages, nil
 }
 
-func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) error {
+func waitFinishMsgHandler(sub *Subscriber, handler MsgHandler, done chan bool) error {
 	if err := sub.Subscribe(handler); err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) er
 	}
 }
 
-func createSubscriber(t *testing.T, conn Connection, consumerName, subject string, mode SubscriptionMode) Subscriber {
+func createSubscriber(t *testing.T, conn *Connection, consumerName, subject string, mode SubscriptionMode) *Subscriber {
 	sub, err := conn.NewSubscriber(NewSubscriberArgs{
 		ConsumerName: consumerName,
 		Subject:      subject,

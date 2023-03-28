@@ -7,21 +7,32 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-type Subscriber interface {
-	// Subscribe expects a message handler which will be called whenever a new message is received.
-	// The MsgHandler MUST finish its task in under 30 seconds.
-	Subscribe(handler MsgHandler) error
+// NewSubscriber creates a new Subscriber that subscribes to a NATS consumer.
+func (c *Connection) NewSubscriber(args NewSubscriberArgs) (*Subscriber, error) {
+	subscription, err := c.nats.CreateSubscription(args.Subject, args.ConsumerName, args.Mode)
+	if err != nil {
+		return nil, fmt.Errorf("Subscriber could not be created: %w", err)
+	}
 
-	// Unsubscribe unsubscribes to the related consumer.
-	Unsubscribe() error
+	sub := &Subscriber{
+		conn:         c,
+		subscription: subscription,
+		log:          c.log,
+		consumerName: args.ConsumerName,
+		quitSignal:   make(chan bool),
+	}
+
+	c.subscribers = append(c.subscribers, sub)
+	return sub, nil
 }
 
-// MsgHandler is the type of function the subscriber has to implement
+// MsgHandler is the type of function the Subscriber has to implement
 // to process an incoming message.
 type MsgHandler func(msg InMsg) error
 
-type subscriber struct {
-	conn         *connection
+// Subscriber subscribes to a NATS consumer and handles incoming messages.
+type Subscriber struct {
+	conn         *Connection
 	subscription subscription
 	log          Log
 	consumerName string
@@ -29,7 +40,8 @@ type subscriber struct {
 	quitSignal   chan bool
 }
 
-func (s *subscriber) Subscribe(handler MsgHandler) (err error) {
+// Subscribe subscribes to the NATS consumer and starts a go-routine that handles incoming messages.
+func (s *Subscriber) Subscribe(handler MsgHandler) (err error) {
 	if s.handler != nil {
 		return fmt.Errorf("handler is already set, don't call Subscribe() multiple times")
 	}
@@ -51,7 +63,7 @@ func (s *subscriber) Subscribe(handler MsgHandler) (err error) {
 	return nil
 }
 
-func (s *subscriber) fetchMessages() {
+func (s *Subscriber) fetchMessages() {
 	msg, err := s.subscription.Fetch()
 	if err != nil {
 		if !errors.Is(err, nats.ErrTimeout) { // ErrTimeout is expected/ no new messages, so we don't log it
@@ -76,7 +88,8 @@ func (s *subscriber) fetchMessages() {
 	}
 }
 
-func (s *subscriber) Unsubscribe() error {
+// Unsubscribe unsubscribes from the NATS consumer.
+func (s *Subscriber) Unsubscribe() error {
 	if err := s.subscription.Unsubscribe(); err != nil {
 		return err
 	}
@@ -85,21 +98,4 @@ func (s *subscriber) Unsubscribe() error {
 	s.log("Unsubscribed to consumer %s", s.consumerName)
 
 	return nil
-}
-
-func makeSubscriber(conn *connection, args *NewSubscriberArgs) (*subscriber, error) {
-	sub, err := conn.nats.CreateSubscription(args.Subject, args.ConsumerName, args.Mode)
-	if err != nil {
-		return nil, fmt.Errorf("subscriber could not be created: %w", err)
-	}
-
-	p := &subscriber{
-		conn:         conn,
-		subscription: sub,
-		log:          conn.log,
-		consumerName: args.ConsumerName,
-		quitSignal:   make(chan bool),
-	}
-
-	return p, nil
 }
