@@ -1,6 +1,7 @@
 package vnats
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -102,18 +103,11 @@ func patchConsumerConfig(config *nats.ConsumerConfig, mode SubscriptionMode) {
 
 func (c *natsBridge) getOrAddConsumer(streamName string, consumerConfig *nats.ConsumerConfig) (*nats.ConsumerInfo, error) {
 	ci, err := c.jetStreamContext.ConsumerInfo(streamName, consumerConfig.Durable)
-	if err != nil {
-		if !strings.Contains(err.Error(), "consumer not found") {
-			return nil, err
-		}
-
-		ci, err = c.jetStreamContext.AddConsumer(streamName, consumerConfig)
-		if err != nil {
-			return nil, fmt.Errorf("consumer %s could not be added to stream %s: %w", consumerConfig.Durable, streamName, err)
-		}
-
-		c.log("Consumer %s for stream %s created at %s. %d messages pending, #%d ack pending", ci.Name, streamName, ci.Created, ci.NumPending, ci.NumAckPending)
-		return ci, nil
+	if errors.Is(err, nats.ErrConsumerNotFound) {
+		c.log("Consumer %s not found, trying to create...\n", consumerConfig.Durable)
+		return c.jetStreamContext.AddConsumer(streamName, consumerConfig)
+	} else if err != nil {
+		return nil, fmt.Errorf("NATS consumer could not be fetched: %w", err)
 	}
 
 	if ci.Config.MaxAckPending != consumerConfig.MaxAckPending {
