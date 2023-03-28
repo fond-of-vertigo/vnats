@@ -2,6 +2,8 @@ package vnats
 
 import (
 	"fmt"
+
+	"github.com/nats-io/nats.go"
 )
 
 // SubscriptionMode defines how the consumer and its Subscriber are configured. This mode must be set accordingly
@@ -32,6 +34,31 @@ type Connection struct {
 	subscribers []*Subscriber
 }
 
+// bridge is required to use a mock for the nats functions in unit tests
+type bridge interface {
+	// GetOrAddStream returns a *nats.StreamInfo and for the given streamInfo name.
+	// It adds a new streamInfo if it does not exist.
+	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
+
+	// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
+	// The first token, separated by dots, of a subject will be interpreted as the streamName.
+	CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*natsSubscription, error)
+
+	// Servers returns the list of NATS servers.
+	Servers() []string
+
+	// PublishMsg publishes a message with a context-dependent msgID to a subject.
+	PublishMsg(msg *nats.Msg, msgID string) error
+
+	// Drain will put a Connection into a drain state. All subscriptions will
+	// immediately be put into a drain state. Upon completion, the publishers
+	// will be drained and can not publish any additional messages. Upon draining
+	// of the publishers, the Connection will be closed.
+	//
+	// See notes for nats.Conn.Drain
+	Drain() error
+}
+
 // Option is an optional configuration argument for the Connect() function.
 type Option func(*Connection)
 
@@ -43,7 +70,7 @@ func Connect(servers []string, options ...Option) (*Connection, error) {
 
 	conn.applyOptions(options...)
 
-	bridge, err := makeNATSBridge(servers, conn.log)
+	bridge, err := newNATSBridge(servers, conn.log)
 	if err != nil {
 		return nil, fmt.Errorf("NATS Connection could not be created: %w", err)
 	}

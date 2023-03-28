@@ -8,13 +8,6 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// Publisher is a NATS publisher that publishes to a NATS stream.
-type Publisher struct {
-	conn       *Connection
-	streamName string
-	log        Log
-}
-
 // NewPublisher creates a new Publisher that publishes to a NATS stream.
 func (c *Connection) NewPublisher(args NewPublisherArgs) (*Publisher, error) {
 	if err := validateStreamName(args.StreamName); err != nil {
@@ -38,6 +31,13 @@ func (c *Connection) NewPublisher(args NewPublisherArgs) (*Publisher, error) {
 		streamName: args.StreamName,
 	}
 	return p, nil
+}
+
+// Publisher is a NATS publisher that publishes to a NATS stream.
+type Publisher struct {
+	conn       *Connection
+	streamName string
+	log        Log
 }
 
 // OutMsg contains the arguments publishing a new message.

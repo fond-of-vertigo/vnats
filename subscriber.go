@@ -33,7 +33,7 @@ type MsgHandler func(msg InMsg) error
 // Subscriber subscribes to a NATS consumer and handles incoming messages.
 type Subscriber struct {
 	conn         *Connection
-	subscription subscription
+	subscription *natsSubscription
 	log          Log
 	consumerName string
 	handler      MsgHandler

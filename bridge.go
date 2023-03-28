@@ -8,38 +8,13 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// bridge is required to use a mock for the nats functions in unit tests
-type bridge interface {
-	// GetOrAddStream returns a *nats.StreamInfo and for the given streamInfo name.
-	// It adds a new streamInfo if it does not exist.
-	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
-
-	// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
-	// The first token, separated by dots, of a subject will be interpreted as the streamName.
-	CreateSubscription(subject, consumerName string, mode SubscriptionMode) (subscription, error)
-
-	// Servers returns the list of NATS servers.
-	Servers() []string
-
-	// PublishMsg publishes a message with a context-dependent msgID to a subject.
-	PublishMsg(msg *nats.Msg, msgID string) error
-
-	// Drain will put a Connection into a drain state. All subscriptions will
-	// immediately be put into a drain state. Upon completion, the publishers
-	// will be drained and can not publish any additional messages. Upon draining
-	// of the publishers, the Connection will be closed.
-	//
-	// See notes for nats.Conn.Drain
-	Drain() error
-}
-
 type natsBridge struct {
 	connection       *nats.Conn
 	jetStreamContext nats.JetStreamContext
 	log              Log
 }
 
-func makeNATSBridge(servers []string, log Log) (bridge, error) {
+func newNATSBridge(servers []string, log Log) (*natsBridge, error) {
 	nb := &natsBridge{
 		log: log,
 	}
@@ -92,7 +67,7 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 	return streamInfo, nil
 }
 
-func (c *natsBridge) CreateSubscription(subject, consumerName string, mode SubscriptionMode) (subscription, error) {
+func (c *natsBridge) CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*natsSubscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	config := &nats.ConsumerConfig{
 		Durable:   consumerName,
@@ -155,4 +130,25 @@ func (c *natsBridge) Servers() []string {
 
 func (c *natsBridge) Drain() error {
 	return c.connection.Drain()
+}
+
+type natsSubscription struct {
+	streamSubscription *nats.Subscription
+}
+
+func (s *natsSubscription) Fetch() (*nats.Msg, error) {
+	messages, err := s.streamSubscription.Fetch(1)
+	if err != nil {
+		return nil, err
+	}
+
+	return messages[0], nil
+}
+
+func (s *natsSubscription) Unsubscribe() error {
+	return s.streamSubscription.Unsubscribe()
+}
+
+func (s *natsSubscription) Drain() error {
+	return s.streamSubscription.Drain()
 }
