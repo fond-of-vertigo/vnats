@@ -13,6 +13,8 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+const integrationTestStreamName = "IntegrationTests"
+
 type testBridge struct {
 	testing.TB
 	streamName     string
@@ -106,7 +108,7 @@ func deleteConsumer(c *Connection, b *natsBridge, streamName string) error {
 	return nil
 }
 
-func makeIntegrationTestConn(t *testing.T, streamName string) *Connection {
+func makeIntegrationTestConn(t *testing.T) *Connection {
 	conn := &Connection{
 		log: t.Logf,
 	}
@@ -132,14 +134,14 @@ func makeIntegrationTestConn(t *testing.T, streamName string) *Connection {
 
 	conn.nats = nb
 
-	if err := deleteConsumer(conn, nb, streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Errorf("Could not delete consumers %s: %v.", streamName, err)
+	if err := deleteConsumer(conn, nb, integrationTestStreamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete consumers %s: %v.", integrationTestStreamName, err)
 	}
-	if err := deleteStream(nb, streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Errorf("Could not delete stream %s: %v.", streamName, err)
+	if err := deleteStream(nb, integrationTestStreamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete stream %s: %v.", integrationTestStreamName, err)
 	}
-	if err := createStream(nb, streamName); err != nil {
-		t.Errorf("Stream %s could not be created: %v", streamName, err)
+	if err := createStream(nb, integrationTestStreamName); err != nil {
+		t.Errorf("Stream %s could not be created: %v", integrationTestStreamName, err)
 	}
 	return conn
 }

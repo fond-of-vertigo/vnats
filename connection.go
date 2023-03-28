@@ -20,13 +20,19 @@ const (
 	SingleSubscriberStrictMessageOrder
 )
 
+// Log is a generic logging function to incorporate the logging of the library into the application.
+// It can be set via the Option of a Connection using WithLogger(l Log).
 type Log func(format string, a ...interface{})
 
+// Connection is the main entry point for the library. It is used to create Publishers and Subscribers.
+// It is also used to close the connection to the NATS server/ cluster.
 type Connection struct {
 	nats        bridge
 	log         Log
 	subscribers []*Subscriber
 }
+
+// Option is an optional configuration argument for the Connect() function.
 type Option func(*Connection)
 
 // Connect returns Connection to a NATS server/ cluster and enables Publisher and Subscriber creation.
@@ -102,6 +108,9 @@ func (c *Connection) Close() error {
 	return nil
 }
 
+// WithLogger sets the logger using the generic Log function.
+// This option can be passed in the Connect function.
+// Without this option, the default Log is a nop function.
 func WithLogger(log Log) Option {
 	return func(c *Connection) {
 		c.log = log

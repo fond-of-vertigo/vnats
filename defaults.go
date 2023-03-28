@@ -1,8 +1,9 @@
 package vnats
 
 import (
-	"github.com/nats-io/nats.go"
 	"time"
+
+	"github.com/nats-io/nats.go"
 )
 
 const (

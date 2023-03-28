@@ -7,6 +7,7 @@ import (
 // A Header represents the key-value pairs.
 type Header map[string][]string
 
+// InMsg represents an incoming message.
 type InMsg interface {
 	// Subject represents the source subject name, like "PRODUCTS.new".
 	Subject() string

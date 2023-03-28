@@ -4,13 +4,11 @@ import (
 	"testing"
 )
 
-const integrationTestStreamName = "IntegrationTests"
-
 func TestConnection_NewPublisher(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	conn := makeIntegrationTestConn(t, integrationTestStreamName)
+	conn := makeIntegrationTestConn(t)
 
 	_, err := conn.NewPublisher(NewPublisherArgs{
 		StreamName: integrationTestStreamName,
@@ -38,7 +36,7 @@ func TestConnection_NewSubscriber(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 	for _, test := range newSubscriberTestCases {
-		conn := makeIntegrationTestConn(t, integrationTestStreamName)
+		conn := makeIntegrationTestConn(t)
 
 		_, err := conn.NewPublisher(NewPublisherArgs{
 			StreamName: integrationTestStreamName,

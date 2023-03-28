@@ -2,17 +2,20 @@ package vnats
 
 import (
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"strings"
 	"time"
+
+	"github.com/nats-io/nats.go"
 )
 
+// Publisher is a NATS publisher that publishes to a NATS stream.
 type Publisher struct {
 	conn       *Connection
 	streamName string
 	log        Log
 }
 
+// NewPublisher creates a new Publisher that publishes to a NATS stream.
 func (c *Connection) NewPublisher(args NewPublisherArgs) (*Publisher, error) {
 	if err := validateStreamName(args.StreamName); err != nil {
 		return nil, err
