@@ -40,7 +40,7 @@ func (b *testBridge) Servers() []string {
 func (b *testBridge) PublishMsg(msg *nats.Msg, msgID string) error {
 	b.Logf("%s\n", string(msg.Data))
 	if diff := cmp.Diff(msg.Data, b.wantData); diff != "" {
-		err := fmt.Errorf("wrong message found=%s (id=%s) want=%s (id=%s)", string(msg.Data), msgID, string(b.wantData), b.wantMessageID)
+		err := fmt.Errorf("wrong message found=%s (id=%s) want=%s (id=%s)", string(msg.Data), msgID, b.wantData, b.wantMessageID)
 		b.Fatal(err, diff)
 	}
 	if msgID != b.wantMessageID {

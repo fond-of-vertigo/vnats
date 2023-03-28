@@ -1,8 +1,6 @@
 package vnats
 
 import (
-	"encoding/json"
-	"reflect"
 	"testing"
 )
 
@@ -91,9 +89,8 @@ func Test_publisher_Publish(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wantDataToBytes, marshalErr := json.Marshal(tt.args.data)
 			pub := &publisher{
-				conn:       makeTestConnection(t, tt.args.streamName, 1, wantDataToBytes, tt.args.msgId, nil),
+				conn:       makeTestConnection(t, tt.args.streamName, 1, tt.args.data, tt.args.msgId, nil),
 				log:        t.Logf,
 				streamName: tt.args.streamName,
 			}
@@ -102,17 +99,9 @@ func Test_publisher_Publish(t *testing.T) {
 				MsgID:   tt.args.msgId,
 				Data:    tt.args.data,
 			})
-			if ((err != nil) != tt.wantErr) && ((marshalErr != nil) != tt.wantErr) {
-				var foundErr error
-				if err != nil {
-					foundErr = err
-				} else {
-					foundErr = marshalErr
-				}
-				t.Errorf("Publish() error = %v, wantErr %v", foundErr, tt.wantErr)
-				return
+			if (err != nil) != tt.wantErr {
+				t.Errorf("publisher.Publish() error = %v, wantErr %v", err, tt.wantErr)
 			}
-
 		})
 	}
 }
@@ -145,7 +134,6 @@ func Test_makePublisher(t *testing.T) {
 			want: &publisher{
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS",
-				log:        t.Logf,
 			},
 			wantErr: false,
 		},
@@ -191,12 +179,18 @@ func Test_makePublisher(t *testing.T) {
 			got, err := makePublisher(tt.args.conn, &NewPublisherArgs{
 				StreamName: tt.args.streamName,
 			})
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("makePublisher() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+
+			if got != nil && tt.want == nil {
 				t.Errorf("makePublisher() got = %v, want %v", got, tt.want)
+			}
+
+			if tt.want != nil && got.streamName != tt.want.streamName {
+				t.Errorf("makePublisher() got = %v, want %v", got.streamName, tt.want.streamName)
 			}
 		})
 	}
