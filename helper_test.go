@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fond-of-vertigo/logger"
 	"github.com/google/go-cmp/cmp"
 	"github.com/nats-io/nats.go"
 	"os"
@@ -13,9 +12,8 @@ import (
 	"time"
 )
 
-var testLogger = logger.New(logger.LvlDebug)
-
 type testBridge struct {
+	testing.TB
 	streamName     string
 	sequenceNumber uint64
 	wantData       []byte
@@ -40,13 +38,13 @@ func (b *testBridge) Servers() []string {
 }
 
 func (b *testBridge) PublishMsg(msg *nats.Msg, msgID string) error {
-	testLogger.Debugf("%s\n", string(msg.Data))
+	b.Logf("%s\n", string(msg.Data))
 	if diff := cmp.Diff(msg.Data, b.wantData); diff != "" {
-		testLogger.Errorf(diff)
-		return fmt.Errorf("wrong message found=%s (id=%s) want=%s (id=%s)", string(msg.Data), msgID, string(b.wantData), b.wantMessageID)
+		err := fmt.Errorf("wrong message found=%s (id=%s) want=%s (id=%s)", string(msg.Data), msgID, string(b.wantData), b.wantMessageID)
+		b.Fatal(err, diff)
 	}
 	if msgID != b.wantMessageID {
-		return fmt.Errorf("wrong message ID found=%s want=%s", msgID, b.wantMessageID)
+		b.Fatalf("wrong message ID found=%s want=%s", msgID, b.wantMessageID)
 	}
 	return nil
 }
@@ -59,8 +57,9 @@ func (b *testBridge) Drain() error {
 	return nil
 }
 
-func makeTestNATSBridge(streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string) bridge {
+func makeTestNATSBridge(t testing.TB, streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string) bridge {
 	return &testBridge{
+		TB:             t,
 		streamName:     streamName,
 		sequenceNumber: currentSequenceNumber,
 		wantData:       wantData,
@@ -68,10 +67,10 @@ func makeTestNATSBridge(streamName string, currentSequenceNumber uint64, wantDat
 	}
 }
 
-func makeTestConnection(streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []*subscriber) *connection {
+func makeTestConnection(t *testing.T, streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []*subscriber) *connection {
 	return &connection{
-		nats:        makeTestNATSBridge(streamName, currentSequenceNumber, wantData, wantMessageID),
-		log:         testLogger,
+		nats:        makeTestNATSBridge(t, streamName, currentSequenceNumber, wantData, wantMessageID),
+		log:         t.Logf,
 		subscribers: wantSubs,
 	}
 }
@@ -107,13 +106,13 @@ func deleteConsumer(c *connection, b *natsBridge, streamName string) error {
 	return nil
 }
 
-func makeIntegrationTestConn(t *testing.T, streamName string, log logger.Logger) Connection {
+func makeIntegrationTestConn(t *testing.T, streamName string) Connection {
 	conn := &connection{
-		log: log,
+		log: t.Logf,
 	}
 
 	nb := &natsBridge{
-		log: log,
+		log: t.Logf,
 	}
 
 	var err error

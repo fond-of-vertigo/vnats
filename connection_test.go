@@ -1,19 +1,16 @@
 package vnats
 
 import (
-	"github.com/fond-of-vertigo/logger"
 	"testing"
 )
 
 const integrationTestStreamName = "IntegrationTests"
 
-var log = logger.New(logger.LvlDebug)
-
 func TestConnection_NewPublisher(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+	conn := makeIntegrationTestConn(t, integrationTestStreamName)
 
 	_, err := conn.NewPublisher(NewPublisherArgs{
 		StreamName: integrationTestStreamName,
@@ -41,7 +38,7 @@ func TestConnection_NewSubscriber(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 	for _, test := range newSubscriberTestCases {
-		conn := makeIntegrationTestConn(t, integrationTestStreamName, log)
+		conn := makeIntegrationTestConn(t, integrationTestStreamName)
 
 		_, err := conn.NewPublisher(NewPublisherArgs{
 			StreamName: integrationTestStreamName,

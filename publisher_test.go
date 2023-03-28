@@ -93,8 +93,8 @@ func Test_publisher_Publish(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			wantDataToBytes, marshalErr := json.Marshal(tt.args.data)
 			pub := &publisher{
-				conn:       makeTestConnection(tt.args.streamName, 1, wantDataToBytes, tt.args.msgId, nil),
-				log:        testLogger,
+				conn:       makeTestConnection(t, tt.args.streamName, 1, wantDataToBytes, tt.args.msgId, nil),
+				log:        t.Logf,
 				streamName: tt.args.streamName,
 			}
 			err := pub.Publish(&OutMsg{
@@ -123,10 +123,10 @@ func Test_makePublisher(t *testing.T) {
 		streamName string
 	}
 
-	natsTestBridge := makeTestNATSBridge("PRODUCTS", 1, nil, "test")
+	natsTestBridge := makeTestNATSBridge(t, "PRODUCTS", 1, nil, "test")
 	connectionEmptySubscriptions := &connection{
 		nats:        natsTestBridge,
-		log:         testLogger,
+		log:         t.Logf,
 		subscribers: nil,
 	}
 
@@ -145,7 +145,7 @@ func Test_makePublisher(t *testing.T) {
 			want: &publisher{
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS",
-				log:        testLogger,
+				log:        t.Logf,
 			},
 			wantErr: false,
 		},

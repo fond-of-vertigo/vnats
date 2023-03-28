@@ -3,7 +3,6 @@ package vnats
 import (
 	"errors"
 	"fmt"
-	"github.com/fond-of-vertigo/logger"
 	"github.com/nats-io/nats.go"
 )
 
@@ -23,7 +22,7 @@ type MsgHandler func(msg InMsg) error
 type subscriber struct {
 	conn         *connection
 	subscription subscription
-	log          logger.Logger
+	log          Log
 	consumerName string
 	handler      MsgHandler
 	quitSignal   chan bool
@@ -40,7 +39,7 @@ func (s *subscriber) Subscribe(handler MsgHandler) (err error) {
 		for {
 			select {
 			case <-s.quitSignal:
-				s.log.Infof("Received signal to quit subscription go-routine.")
+				s.log("Received signal to quit subscription go-routine.")
 				return
 			default:
 				s.fetchMessages()
@@ -54,31 +53,25 @@ func (s *subscriber) Subscribe(handler MsgHandler) (err error) {
 func (s *subscriber) fetchMessages() {
 	msg, err := s.subscription.Fetch()
 	if err != nil {
-		if errors.Is(err, nats.ErrTimeout) {
-			s.log.Debugf("No new messages, timeout")
-		} else {
-			s.log.Errorf("Failed to receive msg: %s", err)
+		if !errors.Is(err, nats.ErrTimeout) { // ErrTimeout is expected/ no new messages, so we don't log it
+			s.log("Failed to receive msg: %s", err)
 		}
 
 		return
-	}
-
-	if s.log.IsDebugEnabled() {
-		s.log.Debugf("Received message - msgID: %s, data: %s", msg.Header.Get(nats.MsgIdHdr), string(msg.Data))
 	}
 
 	inMsg := makeInMsg(msg)
 	err = s.handler(inMsg)
 	if err != nil {
-		s.log.Errorf("Message handle error, will be NAKed: %s", err)
+		s.log("Message handle error, will be NAKed: %s", err)
 		if err := msg.NakWithDelay(defaultNakDelay); err != nil {
-			s.log.Errorf("msg.Nak() failed: %s", err)
+			s.log("msg.Nak() failed: %s", err)
 		}
 		return
 	}
 
 	if err = msg.Ack(); err != nil {
-		s.log.Errorf("msg.Ack() failed: %s", err)
+		s.log("msg.Ack() failed: %s", err)
 	}
 }
 
@@ -88,7 +81,7 @@ func (s *subscriber) Unsubscribe() error {
 	}
 
 	s.handler = nil
-	s.log.Debugf("Unsubscribed to consumer %s", s.consumerName)
+	s.log("Unsubscribed to consumer %s", s.consumerName)
 
 	return nil
 }

@@ -3,7 +3,6 @@ module github.com/fond-of-vertigo/vnats
 go 1.17
 
 require (
-	github.com/fond-of-vertigo/logger v0.0.0-20220420082518-27f029f18b0f
 	github.com/google/go-cmp v0.5.5
 	github.com/nats-io/nats-server/v2 v2.7.4
 	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d

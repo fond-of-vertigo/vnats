@@ -2,7 +2,6 @@ package vnats
 
 import (
 	"fmt"
-	"github.com/fond-of-vertigo/logger"
 	"github.com/nats-io/nats.go"
 	"strings"
 	"time"
@@ -16,7 +15,7 @@ type Publisher interface {
 type publisher struct {
 	conn       *connection
 	streamName string
-	log        logger.Logger
+	log        Log
 }
 
 // OutMsg contains the arguments publishing a new message.
@@ -49,7 +48,6 @@ func (p *publisher) Publish(outMsg *OutMsg) error {
 		return err
 	}
 
-	p.log.Debugf("Publish message with msgID: %s @ %s\n", outMsg.MsgID, outMsg.Subject)
 	msg := nats.Msg{
 		Subject: outMsg.Subject,
 		Reply:   outMsg.Reply,

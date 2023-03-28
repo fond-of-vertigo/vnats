@@ -2,7 +2,6 @@ package vnats
 
 import (
 	"fmt"
-	"github.com/fond-of-vertigo/logger"
 	natsServer "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"strings"
@@ -36,10 +35,10 @@ type bridge interface {
 type natsBridge struct {
 	connection       *nats.Conn
 	jetStreamContext nats.JetStreamContext
-	log              logger.Logger
+	log              Log
 }
 
-func makeNATSBridge(servers []string, log logger.Logger) (bridge, error) {
+func makeNATSBridge(servers []string, log Log) (bridge, error) {
 	nb := &natsBridge{
 		log: log,
 	}
@@ -49,13 +48,13 @@ func makeNATSBridge(servers []string, log logger.Logger) (bridge, error) {
 
 	nb.connection, err = nats.Connect(url,
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
-			log.Errorf("Got disconnected: %v\n", err)
+			log("Got disconnected: %v\n", err)
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
-			log.Errorf("Got reconnected to %v!\n", nc.ConnectedUrl())
+			log("Got reconnected to %v!\n", nc.ConnectedUrl())
 		}),
 		nats.ClosedHandler(func(nc *nats.Conn) {
-			log.Errorf("Connection closed: %v\n", nc.LastError())
+			log("Connection closed: %v\n", nc.LastError())
 		}))
 	if err != nil {
 		return nil, fmt.Errorf("could not make NATS connection to %s: %w", url, err)
@@ -80,13 +79,13 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 		if err != nats.ErrStreamNotFound {
 			return nil, fmt.Errorf("NATS streamInfo-info could not be fetched: %w", err)
 		}
-		c.log.Debugf("Stream %s not found, trying to create...\n", streamConfig.Name)
+		c.log("Stream %s not found, trying to create...\n", streamConfig.Name)
 
 		streamInfo, err = c.jetStreamContext.AddStream(streamConfig)
 		if err != nil {
 			return nil, fmt.Errorf("streamInfo %s could not be created: %w", streamConfig.Name, err)
 		}
-		c.log.Debugf("created new NATS streamInfo %s\n", streamConfig.Name)
+		c.log("created new NATS streamInfo %s\n", streamConfig.Name)
 	}
 
 	return streamInfo, nil
@@ -137,7 +136,7 @@ func (c *natsBridge) getOrAddConsumer(streamName string, consumerConfig *nats.Co
 			return nil, fmt.Errorf("consumer %s could not be added to stream %s: %w", consumerConfig.Durable, streamName, err)
 		}
 
-		c.log.Debugf("Consumer %s for stream %s created at %s. %d messages pending, #%d ack pending", ci.Name, streamName, ci.Created, ci.NumPending, ci.NumAckPending)
+		c.log("Consumer %s for stream %s created at %s. %d messages pending, #%d ack pending", ci.Name, streamName, ci.Created, ci.NumPending, ci.NumAckPending)
 		return ci, nil
 	}
 
