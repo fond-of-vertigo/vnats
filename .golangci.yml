@@ -1,0 +1,59 @@
+run:
+  deadline: 5m
+
+output:
+  sort-results: true
+
+linters:
+  enable:
+    - asciicheck
+    - depguard
+    - dogsled
+    - durationcheck
+    - errcheck
+    - exportloopref
+    - gci
+    - gofumpt
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - nilerr
+    - prealloc
+    - predeclared
+    - revive
+    - revive
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+
+issues:
+  max-same-issues: 0
+  exclude-use-default: false
+  exclude:
+    - should have a package comment
+
+
+linters-settings:
+  depguard:
+    list-type: blacklist
+    include-go-root: true
+    packages-with-error-message:
+      - github.com/stretchr/testify/assert: "Use github.com/stretchr/testify/require instead of github.com/stretchr/testify/assert"
+      - io/ioutil: "Use corresponding 'os' or 'io' functions instead."
+
+  gofumpt:
+    extra-rules: true
+    simplify: true
+
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/fond-of-vertigo/vnats)

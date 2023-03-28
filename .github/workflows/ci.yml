@@ -1,0 +1,31 @@
+name: Continuous Integration
+on:
+  push:
+    branches:
+      - pull_request
+      - main
+  pull_request:
+  workflow_dispatch:
+
+env:
+  NATS_SERVER_URL: "nats://127.0.0.1:4222"
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup GO
+        uses: actions/setup-go@v4
+        with:
+          go-version: "stable"
+      - name: Check out Go client code
+        uses: actions/checkout@v3
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          skip-pkg-cache: true
+      - name: Install NATS server
+        run: |
+          curl -sL https://github.com/nats-io/nats-server/releases/download/v2.9.15/nats-server-v2.9.15-linux-amd64.tar.gz | tar xzvf -
+          cd nats-server-v2.9.15-linux-amd64 && ./nats-server -p 4222 -js &
+      - name: Run unit and integration tests
+        run: make test-all
