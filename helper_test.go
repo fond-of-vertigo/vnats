@@ -51,7 +51,7 @@ func (b *testBridge) PublishMsg(msg *nats.Msg, msgID string) error {
 	return nil
 }
 
-func (b *testBridge) CreateSubscription(_, _ string, _ SubscriptionMode) (*natsSubscription, error) {
+func (b *testBridge) CreateSubscription(_, _ string, _ SubscriptionMode) (*nats.Subscription, error) {
 	return nil, nil
 }
 

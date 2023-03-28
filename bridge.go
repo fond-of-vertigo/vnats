@@ -68,7 +68,7 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 	return streamInfo, nil
 }
 
-func (c *natsBridge) CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*natsSubscription, error) {
+func (c *natsBridge) CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*nats.Subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	config := &nats.ConsumerConfig{
 		Durable:   consumerName,
@@ -82,12 +82,7 @@ func (c *natsBridge) CreateSubscription(subject, consumerName string, mode Subsc
 		return nil, err
 	}
 
-	sub, err := c.jetStreamContext.PullSubscribe(subject, consumerName, nats.Bind(streamName, consumerName))
-	if err != nil {
-		return nil, err
-	}
-
-	return &natsSubscription{streamSubscription: sub}, nil
+	return c.jetStreamContext.PullSubscribe(subject, consumerName, nats.Bind(streamName, consumerName))
 }
 
 func patchConsumerConfig(config *nats.ConsumerConfig, mode SubscriptionMode) {
@@ -124,25 +119,4 @@ func (c *natsBridge) Servers() []string {
 
 func (c *natsBridge) Drain() error {
 	return c.connection.Drain()
-}
-
-type natsSubscription struct {
-	streamSubscription *nats.Subscription
-}
-
-func (s *natsSubscription) Fetch() (*nats.Msg, error) {
-	messages, err := s.streamSubscription.Fetch(1)
-	if err != nil {
-		return nil, err
-	}
-
-	return messages[0], nil
-}
-
-func (s *natsSubscription) Unsubscribe() error {
-	return s.streamSubscription.Unsubscribe()
-}
-
-func (s *natsSubscription) Drain() error {
-	return s.streamSubscription.Drain()
 }

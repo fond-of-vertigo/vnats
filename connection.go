@@ -42,7 +42,7 @@ type bridge interface {
 
 	// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
 	// The first token, separated by dots, of a subject will be interpreted as the streamName.
-	CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*natsSubscription, error)
+	CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*nats.Subscription, error)
 
 	// Servers returns the list of NATS servers.
 	Servers() []string
