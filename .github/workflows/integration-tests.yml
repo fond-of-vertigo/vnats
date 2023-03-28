@@ -14,15 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup GO
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.17.8
-          check-latest: true
-      - name: Install Nats Server
-        uses: scottf/install-nats-io-server-ubuntu@main
-      - name: Run the server
-        run: nats-server -m 8222 -js &
+          go-version: "stable"
       - name: Check out Go client code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+      - name: Install NATS server
+        run: |
+          curl -sL https://github.com/nats-io/nats-server/releases/download/v2.9.15/nats-server-v2.9.15-linux-amd64.tar.gz | tar xzvf -
+          cd nats-server-v2.9.15-linux-amd64 && ./nats-server -p 4222 -js &
       - name: Run unit and integration tests
         run: make test-all
