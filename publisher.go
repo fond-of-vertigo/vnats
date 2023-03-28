@@ -2,9 +2,10 @@ package vnats
 
 import (
 	"fmt"
-	"github.com/nats-io/nats.go"
 	"strings"
 	"time"
+
+	"github.com/nats-io/nats.go"
 )
 
 type Publisher interface {
@@ -74,7 +75,6 @@ func makePublisher(conn *connection, args *NewPublisherArgs) (*publisher, error)
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     time.Hour * 24 * 30,
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("publisher could not be created: %w", err)
 	}
@@ -87,7 +87,7 @@ func makePublisher(conn *connection, args *NewPublisherArgs) (*publisher, error)
 	return p, nil
 }
 
-func validateSubject(subject string, streamName string) error {
+func validateSubject(subject, streamName string) error {
 	if err := validateStreamName(streamName); err != nil {
 		return err
 	}

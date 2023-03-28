@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/nats-io/nats.go"
 	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/nats-io/nats.go"
 )
 
 type testBridge struct {
@@ -24,13 +25,12 @@ func (b *testBridge) DeleteStream(_ string) error {
 	return nil
 }
 
-func (b *testBridge) DeleteConsumers(_ string, _ string) error {
+func (b *testBridge) DeleteConsumers(_, _ string) error {
 	return nil
 }
 
 func (b *testBridge) GetOrAddStream(_ *nats.StreamConfig) (*nats.StreamInfo, error) {
 	return nil, nil
-
 }
 
 func (b *testBridge) Servers() []string {
@@ -49,7 +49,7 @@ func (b *testBridge) PublishMsg(msg *nats.Msg, msgID string) error {
 	return nil
 }
 
-func (b *testBridge) CreateSubscription(_ string, _ string, _ SubscriptionMode) (subscription, error) {
+func (b *testBridge) CreateSubscription(_, _ string, _ SubscriptionMode) (subscription, error) {
 	return nil, nil
 }
 
@@ -144,7 +144,7 @@ func makeIntegrationTestConn(t *testing.T, streamName string) Connection {
 	return conn
 }
 
-func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []string) error {
+func cmpStringSlicesIgnoreOrder(expectedMessages, receivedMessages []string) error {
 	if len(expectedMessages) == 0 && len(receivedMessages) == 0 {
 		return nil
 	}
@@ -269,7 +269,7 @@ func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) er
 	}
 }
 
-func createSubscriber(t *testing.T, conn Connection, consumerName string, subject string, mode SubscriptionMode) Subscriber {
+func createSubscriber(t *testing.T, conn Connection, consumerName, subject string, mode SubscriptionMode) Subscriber {
 	sub, err := conn.NewSubscriber(NewSubscriberArgs{
 		ConsumerName: consumerName,
 		Subject:      subject,

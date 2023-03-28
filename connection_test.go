@@ -55,5 +55,4 @@ func TestConnection_NewSubscriber(t *testing.T) {
 			t.Errorf("Subscriber could not be created: %v", err)
 		}
 	}
-
 }

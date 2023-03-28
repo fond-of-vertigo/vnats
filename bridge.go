@@ -2,9 +2,10 @@ package vnats
 
 import (
 	"fmt"
+	"strings"
+
 	natsServer "github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
-	"strings"
 )
 
 // bridge is required to use a mock for the nats functions in unit tests
@@ -14,8 +15,8 @@ type bridge interface {
 	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
 
 	// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
-	// The first token, seperated by dots, of a subject will be interpreted as the streamName.
-	CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error)
+	// The first token, separated by dots, of a subject will be interpreted as the streamName.
+	CreateSubscription(subject, consumerName string, mode SubscriptionMode) (subscription, error)
 
 	// Servers returns the list of NATS servers.
 	Servers() []string
@@ -91,7 +92,7 @@ func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.Stre
 	return streamInfo, nil
 }
 
-func (c *natsBridge) CreateSubscription(subject string, consumerName string, mode SubscriptionMode) (subscription, error) {
+func (c *natsBridge) CreateSubscription(subject, consumerName string, mode SubscriptionMode) (subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	config := &nats.ConsumerConfig{
 		Durable:   consumerName,

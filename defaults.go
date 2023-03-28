@@ -5,7 +5,9 @@ import (
 	"time"
 )
 
-const defaultStorageType = nats.FileStorage
-const defaultDuplicationWindow = time.Minute * 30
-const defaultAckWait = time.Second * 30
-const defaultNakDelay = time.Second * 3
+const (
+	defaultStorageType       = nats.FileStorage
+	defaultDuplicationWindow = time.Minute * 30
+	defaultAckWait           = time.Second * 30
+	defaultNakDelay          = time.Second * 3
+)

@@ -27,5 +27,4 @@ func (s *natsSubscription) Unsubscribe() error {
 
 func (s *natsSubscription) Drain() error {
 	return s.streamSubscription.Drain()
-
 }

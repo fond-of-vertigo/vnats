@@ -3,6 +3,7 @@ package vnats
 import (
 	"errors"
 	"fmt"
+
 	"github.com/nats-io/nats.go"
 )
 
