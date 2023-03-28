@@ -13,7 +13,7 @@ func Test_publisher_Publish(t *testing.T) {
 		data       []byte
 		streamName string
 		subject    string
-		msgId      string
+		msgID      string
 	}
 	tests := []struct {
 		name    string
@@ -27,7 +27,7 @@ func Test_publisher_Publish(t *testing.T) {
 				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    "MESSAGES.Important",
-				msgId:      "msg-001",
+				msgID:      "msg-001",
 			},
 			wantErr: false,
 		},
@@ -38,7 +38,7 @@ func Test_publisher_Publish(t *testing.T) {
 				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    "Important",
-				msgId:      "msg-001",
+				msgID:      "msg-001",
 			},
 			wantErr: true,
 		},
@@ -49,7 +49,7 @@ func Test_publisher_Publish(t *testing.T) {
 				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    "",
-				msgId:      "msg-001",
+				msgID:      "msg-001",
 			},
 			wantErr: true,
 		},
@@ -60,7 +60,7 @@ func Test_publisher_Publish(t *testing.T) {
 				data:       []byte("test message"),
 				streamName: "",
 				subject:    "MESSAGES",
-				msgId:      "msg-001",
+				msgID:      "msg-001",
 			},
 			wantErr: true,
 		},
@@ -71,7 +71,7 @@ func Test_publisher_Publish(t *testing.T) {
 				data:       []byte("test message"),
 				streamName: "",
 				subject:    "",
-				msgId:      "msg-001",
+				msgID:      "msg-001",
 			},
 			wantErr: true,
 		},
@@ -82,7 +82,7 @@ func Test_publisher_Publish(t *testing.T) {
 				data:       []byte("test message"),
 				streamName: "MESSAGES",
 				subject:    ".MESSAGES.Important",
-				msgId:      "msg-001",
+				msgID:      "msg-001",
 			},
 			wantErr: true,
 		},
@@ -96,7 +96,7 @@ func Test_publisher_Publish(t *testing.T) {
 			}
 			err := pub.Publish(&OutMsg{
 				Subject: tt.args.subject,
-				MsgID:   tt.args.msgId,
+				MsgID:   tt.args.msgID,
 				Data:    tt.args.data,
 			})
 			if (err != nil) != tt.wantErr {
@@ -126,7 +126,7 @@ func Test_makePublisher(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Default publisher generation.",
+			name: "Default Publisher generation.",
 			args: args{
 				conn:       connectionEmptySubscriptions,
 				streamName: "PRODUCTS",
