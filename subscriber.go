@@ -65,7 +65,9 @@ func (s *Subscriber) Subscribe(handler MsgHandler) (err error) {
 
 func (s *Subscriber) fetchMessages() {
 	msg, err := s.subscription.Fetch(1)
-	if err != nil && !errors.Is(err, nats.ErrTimeout) { // ErrTimeout is expected/ no new messages, so we don't log it
+	if errors.Is(err, nats.ErrTimeout) { // ErrTimeout is expected/ no new messages, so we don't log it
+		return
+	} else if err != nil {
 		s.log("Failed to receive msg: %v", err)
 		return
 	}
