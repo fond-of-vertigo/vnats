@@ -22,23 +22,33 @@ const (
 	SingleSubscriberStrictMessageOrder
 )
 
-// Log is a generic logging function to incorporate the logging of the library into the application.
-// It can be set via the Option of a Connection using WithLogger(l Log).
-type Log func(format string, a ...interface{})
+const (
+	LogLevelTrace = iota
+	LogLevelDebug
+	LogLevelInfo
+	LogLevelWarn
+	LogLevelError
+)
+
+// LogFunc is a generic logging function to incorporate the logging of the library into the application.
+// It can be set via the Option of a Connection using WithLogger(l LogFunc).
+type LogFunc func(level int, format string, a ...interface{})
+
+var NoOpLogFunc = func(_ int, _ string, _ ...interface{}) {}
 
 // Connection is the main entry point for the library. It is used to create Publishers and Subscribers.
 // It is also used to close the connection to the NATS server/ cluster.
 type Connection struct {
 	nats        bridge
-	log         Log
+	log         LogFunc
 	subscribers []*Subscriber
 }
 
 // bridge is required to use a mock for the nats functions in unit tests
 type bridge interface {
-	// GetOrAddStream returns a *nats.StreamInfo and for the given streamInfo name.
+	// FetchOrAddStream returns a *nats.StreamInfo and for the given streamInfo name.
 	// It adds a new streamInfo if it does not exist.
-	GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
+	FetchOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
 
 	// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
 	// The first token, separated by dots, of a subject will be interpreted as the streamName.
@@ -65,17 +75,14 @@ type Option func(*Connection)
 // Connect returns Connection to a NATS server/ cluster and enables Publisher and Subscriber creation.
 func Connect(servers []string, options ...Option) (*Connection, error) {
 	conn := &Connection{
-		log: func(_ string, _ ...interface{}) {},
+		log: NoOpLogFunc,
 	}
 
 	conn.applyOptions(options...)
-
-	bridge, err := newNATSBridge(servers, conn.log)
-	if err != nil {
+	var err error
+	if conn.nats, err = newNATSBridge(servers, conn.log); err != nil {
 		return nil, fmt.Errorf("NATS Connection could not be created: %w", err)
 	}
-
-	conn.nats = bridge
 	return conn, nil
 }
 
@@ -85,19 +92,19 @@ func (c *Connection) applyOptions(options ...Option) {
 	}
 }
 
-// NewPublisherArgs contains the arguments for creating a new Publisher.
+// CreatePublisherArgs contains the arguments for creating a new Publisher.
 // By using a struct we are open for adding new arguments in the future
 // and the caller can omit arguments where the default value is OK.
-type NewPublisherArgs struct {
+type CreatePublisherArgs struct {
 	// StreamName is the name of the stream like "PRODUCTS" or "ORDERS".
 	// If it does not exist, the stream will be created.
 	StreamName string
 }
 
-// NewSubscriberArgs contains the arguments for creating a new Subscriber.
+// CreateSubscriberArgs contains the arguments for creating a new Subscriber.
 // By using a struct we are open for adding new arguments in the future
 // and the caller can omit arguments where the default value is OK.
-type NewSubscriberArgs struct {
+type CreateSubscriberArgs struct {
 	// ConsumerName contains the name of the consumer. By default, this should be the
 	// name of the service.
 	ConsumerName string
@@ -117,28 +124,27 @@ type NewSubscriberArgs struct {
 
 // Close closes the NATS Connection and drains all subscriptions.
 func (c *Connection) Close() error {
-	c.log("Draining and closing open subscriptions..")
+	c.log(LogLevelTrace, "Draining and closing open subscriptions..")
 	for _, sub := range c.subscribers {
 		if err := sub.subscription.Drain(); err != nil {
 			return err
 		}
 		sub.quitSignal <- true
 		close(sub.quitSignal)
-
 	}
-	c.log("Closed all open subscriptions.")
-	c.log("Closing NATS Connection...")
+	c.log(LogLevelTrace, "Closed all open subscriptions.")
+	c.log(LogLevelTrace, "Closing NATS Connection...")
 	if err := c.nats.Drain(); err != nil {
 		return fmt.Errorf("NATS Connection could not be closed: %w", err)
 	}
-	c.log("Closed NATS Connection.")
+	c.log(LogLevelInfo, "NATS Connection closed.")
 	return nil
 }
 
-// WithLogger sets the logger using the generic Log function.
+// WithLogger sets the logger using the generic LogFunc function.
 // This option can be passed in the Connect function.
-// Without this option, the default Log is a nop function.
-func WithLogger(log Log) Option {
+// Without this option, the default LogFunc is a nop function.
+func WithLogger(log LogFunc) Option {
 	return func(c *Connection) {
 		c.log = log
 	}

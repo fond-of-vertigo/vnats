@@ -12,10 +12,10 @@ import (
 type natsBridge struct {
 	connection       *nats.Conn
 	jetStreamContext nats.JetStreamContext
-	log              Log
+	log              LogFunc
 }
 
-func newNATSBridge(servers []string, log Log) (*natsBridge, error) {
+func newNATSBridge(servers []string, log LogFunc) (*natsBridge, error) {
 	nb := &natsBridge{
 		log: log,
 	}
@@ -25,13 +25,13 @@ func newNATSBridge(servers []string, log Log) (*natsBridge, error) {
 
 	nb.connection, err = nats.Connect(url,
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
-			log("Got disconnected: %v\n", err)
+			log(LogLevelInfo, "Got disconnected: %v", err)
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
-			log("Got reconnected to %v!\n", nc.ConnectedUrl())
+			log(LogLevelInfo, "Got reconnected to %v!", nc.ConnectedUrl())
 		}),
 		nats.ClosedHandler(func(nc *nats.Conn) {
-			log("Connection closed: %v\n", nc.LastError())
+			log(LogLevelInfo, "Connection closed: %v", nc.LastError())
 		}))
 	if err != nil {
 		return nil, fmt.Errorf("could not make NATS Connection to %s: %w", url, err)
@@ -45,30 +45,30 @@ func newNATSBridge(servers []string, log Log) (*natsBridge, error) {
 	return nb, nil
 }
 
-func (c *natsBridge) PublishMsg(msg *nats.Msg, msgID string) error {
-	_, err := c.jetStreamContext.PublishMsg(msg, nats.MsgId(msgID))
+func (b *natsBridge) PublishMsg(msg *nats.Msg, msgID string) error {
+	_, err := b.jetStreamContext.PublishMsg(msg, nats.MsgId(msgID))
 	return err
 }
 
-func (c *natsBridge) GetOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error) {
-	streamInfo, err := c.jetStreamContext.StreamInfo(streamConfig.Name)
+func (b *natsBridge) FetchOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error) {
+	streamInfo, err := b.jetStreamContext.StreamInfo(streamConfig.Name)
 	if err != nil {
 		if err != nats.ErrStreamNotFound {
 			return nil, fmt.Errorf("NATS streamInfo-info could not be fetched: %w", err)
 		}
-		c.log("Stream %s not found, trying to create...\n", streamConfig.Name)
+		b.log(LogLevelInfo, "Stream %s not found, about to add stream.", streamConfig.Name)
 
-		streamInfo, err = c.jetStreamContext.AddStream(streamConfig)
+		streamInfo, err = b.jetStreamContext.AddStream(streamConfig)
 		if err != nil {
-			return nil, fmt.Errorf("streamInfo %s could not be created: %w", streamConfig.Name, err)
+			return nil, fmt.Errorf("streamInfo %s could not be added: %w", streamConfig.Name, err)
 		}
-		c.log("created new NATS streamInfo %s\n", streamConfig.Name)
+		b.log(LogLevelInfo, "Added new NATS streamInfo %s", streamConfig.Name)
 	}
 
 	return streamInfo, nil
 }
 
-func (c *natsBridge) CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*nats.Subscription, error) {
+func (b *natsBridge) CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*nats.Subscription, error) {
 	streamName := strings.Split(subject, ".")[0]
 	config := &nats.ConsumerConfig{
 		Durable:   consumerName,
@@ -78,11 +78,11 @@ func (c *natsBridge) CreateSubscription(subject, consumerName string, mode Subsc
 
 	patchConsumerConfig(config, mode)
 
-	if _, err := c.getOrAddConsumer(streamName, config); err != nil {
+	if _, err := b.fetchOrAddConsumer(streamName, config); err != nil {
 		return nil, err
 	}
 
-	return c.jetStreamContext.PullSubscribe(subject, consumerName, nats.Bind(streamName, consumerName))
+	return b.jetStreamContext.PullSubscribe(subject, consumerName, nats.Bind(streamName, consumerName))
 }
 
 func patchConsumerConfig(config *nats.ConsumerConfig, mode SubscriptionMode) {
@@ -96,27 +96,32 @@ func patchConsumerConfig(config *nats.ConsumerConfig, mode SubscriptionMode) {
 	}
 }
 
-func (c *natsBridge) getOrAddConsumer(streamName string, consumerConfig *nats.ConsumerConfig) (*nats.ConsumerInfo, error) {
-	ci, err := c.jetStreamContext.ConsumerInfo(streamName, consumerConfig.Durable)
+func (b *natsBridge) fetchOrAddConsumer(streamName string, consumerConfig *nats.ConsumerConfig) (*nats.ConsumerInfo, error) {
+	ci, err := b.jetStreamContext.ConsumerInfo(streamName, consumerConfig.Durable)
 	if errors.Is(err, nats.ErrConsumerNotFound) {
-		c.log("Consumer %s not found, trying to create...\n", consumerConfig.Durable)
-		return c.jetStreamContext.AddConsumer(streamName, consumerConfig)
+		b.log(LogLevelInfo, "Consumer %s not found, about to add consumer.", consumerConfig.Durable)
+		if ci, err = b.jetStreamContext.AddConsumer(streamName, consumerConfig); err != nil {
+			return nil, fmt.Errorf("NATS consumer could not be fetched: %w", err)
+		}
+		b.log(LogLevelInfo, "Created new NATS consumer %s", consumerConfig.Durable)
+		return ci, nil
 	} else if err != nil {
-		return nil, fmt.Errorf("NATS consumer could not be fetched: %w", err)
+		return nil, fmt.Errorf("consumer %s could not be fetched: %w", consumerConfig.Durable, err)
 	}
 
 	if ci.Config.MaxAckPending != consumerConfig.MaxAckPending {
-		return nil, fmt.Errorf("consumer %s SubscriptionMode has changed. "+
-			"Please use the existing SubscriptionMode=%v or delete consumer", consumerConfig.Durable, SubscriptionMode(ci.Config.MaxAckPending))
+		b.log(LogLevelError, "Consumer %s SubscriptionMode has changed. Use the existing SubscriptionMode=%v or delete consumer.",
+			consumerConfig.Durable, SubscriptionMode(ci.Config.MaxAckPending))
+		return nil, fmt.Errorf("stream consumer SubscriptionMode %v does not match with consumerConfig", SubscriptionMode(ci.Config.MaxAckPending))
 	}
 
 	return ci, nil
 }
 
-func (c *natsBridge) Servers() []string {
-	return c.connection.Servers()
+func (b *natsBridge) Servers() []string {
+	return b.connection.Servers()
 }
 
-func (c *natsBridge) Drain() error {
-	return c.connection.Drain()
+func (b *natsBridge) Drain() error {
+	return b.connection.Drain()
 }

@@ -89,7 +89,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				conn := makeIntegrationTestConn(t)
 
-				sub, err := conn.NewSubscriber(NewSubscriberArgs{
+				sub, err := conn.CreateSubscriber(CreateSubscriberArgs{
 					ConsumerName: "TestConsumer",
 					Subject:      subject,
 					Mode:         tt.mode,
@@ -179,14 +179,14 @@ func TestSubscriber_CallTwice(t *testing.T) {
 	subject := integrationTestStreamName + ".subscribeTwice"
 	conn := makeIntegrationTestConn(t)
 	publishStringMessages(t, conn, subject, []string{})
-	sub, err := conn.NewSubscriber(NewSubscriberArgs{
+	sub, err := conn.CreateSubscriber(CreateSubscriberArgs{
 		ConsumerName: "TestConsumer",
 		Subject:      subject,
 	})
 	if err != nil {
 		t.Error(err)
 	}
-	handler := func(_ InMsg) error { return nil }
+	handler := func(_ Msg) error { return nil }
 
 	if err := sub.Subscribe(handler); err != nil {
 		t.Error(err)
@@ -238,8 +238,8 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 
 			callCountHello, callCountWorld := 0, 0
 
-			handler := func(msg InMsg) error {
-				switch string(msg.Data()) {
+			handler := func(msg Msg) error {
+				switch string(msg.Data) {
 				case "hello":
 					callCountHello++
 				case "world":
@@ -376,8 +376,8 @@ func TestSubscriberMultiple(t *testing.T) {
 	}
 }
 
-func makeHandlerSubscriber(t *testing.T, alwaysFail bool, s *subscriptionState, idx int) func(msg InMsg) error {
-	handler := func(msg InMsg) error {
+func makeHandlerSubscriber(t *testing.T, alwaysFail bool, s *subscriptionState, idx int) func(msg Msg) error {
+	handler := func(msg Msg) error {
 		if alwaysFail {
 			s.FailedMsgs++
 			t.Logf("Subscriber %v: Failed msg handeling, failesp: %v", idx, s.FailedMsgs)
