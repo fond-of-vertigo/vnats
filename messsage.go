@@ -39,6 +39,7 @@ func NewMsg(subject, id string, data []byte) *Msg {
 		Data:    data,
 	}
 }
+
 func makeMsg(msg *nats.Msg) Msg {
 	return Msg{
 		Subject: msg.Subject,
@@ -48,6 +49,7 @@ func makeMsg(msg *nats.Msg) Msg {
 		Header:  Header(msg.Header),
 	}
 }
+
 func (m *Msg) toNATS() *nats.Msg {
 	return &nats.Msg{
 		Subject: m.Subject,
