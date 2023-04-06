@@ -10,7 +10,7 @@ func TestConnection_NewPublisher(t *testing.T) {
 	}
 	conn := makeIntegrationTestConn(t)
 
-	_, err := conn.CreatePublisher(CreatePublisherArgs{
+	_, err := conn.NewPublisher(PublisherArgs{
 		StreamName: integrationTestStreamName,
 	})
 	if err != nil {
@@ -38,13 +38,13 @@ func TestConnection_NewSubscriber(t *testing.T) {
 	for _, test := range newSubscriberTestCases {
 		conn := makeIntegrationTestConn(t)
 
-		_, err := conn.CreatePublisher(CreatePublisherArgs{
+		_, err := conn.NewPublisher(PublisherArgs{
 			StreamName: integrationTestStreamName,
 		})
 		if err != nil {
 			t.Errorf("Publisher could not be created: %v", err)
 		}
-		_, err = conn.CreateSubscriber(CreateSubscriberArgs{
+		_, err = conn.NewSubscriber(SubscriberArgs{
 			ConsumerName: test.consumerName,
 			Subject:      test.subject,
 			Mode:         test.mode,

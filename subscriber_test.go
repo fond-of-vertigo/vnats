@@ -89,7 +89,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				conn := makeIntegrationTestConn(t)
 
-				sub, err := conn.CreateSubscriber(CreateSubscriberArgs{
+				sub, err := conn.NewSubscriber(SubscriberArgs{
 					ConsumerName: "TestConsumer",
 					Subject:      subject,
 					Mode:         tt.mode,
@@ -179,7 +179,7 @@ func TestSubscriber_CallTwice(t *testing.T) {
 	subject := integrationTestStreamName + ".subscribeTwice"
 	conn := makeIntegrationTestConn(t)
 	publishStringMessages(t, conn, subject, []string{})
-	sub, err := conn.CreateSubscriber(CreateSubscriberArgs{
+	sub, err := conn.NewSubscriber(SubscriberArgs{
 		ConsumerName: "TestConsumer",
 		Subject:      subject,
 	})
@@ -188,11 +188,11 @@ func TestSubscriber_CallTwice(t *testing.T) {
 	}
 	handler := func(_ Msg) error { return nil }
 
-	if err := sub.Subscribe(handler); err != nil {
+	if err := sub.Start(handler); err != nil {
 		t.Error(err)
 	}
-	err = sub.Subscribe(handler)
-	if err.Error() != "handler is already set, don't call Subscribe() multiple times" {
+	err = sub.Start(handler)
+	if err.Error() != "handler is already set, don't call Start() multiple times" {
 		t.Errorf("Error expeceted, but not received! Err: %v", err)
 	}
 	if err := conn.Close(); err != nil {
@@ -248,7 +248,7 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 				return fmt.Errorf("REST-Endpoint is down, retry later")
 			}
 
-			if err := sub.Subscribe(handler); err != nil {
+			if err := sub.Start(handler); err != nil {
 				t.Error(err)
 			}
 
@@ -355,7 +355,7 @@ func TestSubscriberMultiple(t *testing.T) {
 
 				handler := makeHandlerSubscriber(t, subConfig.alwaysFail, &subState, idx)
 
-				if err := s[idx].subscriber.Subscribe(handler); err != nil && !tt.wantErr {
+				if err := s[idx].subscriber.Start(handler); err != nil && !tt.wantErr {
 					t.Error(err)
 				}
 			}

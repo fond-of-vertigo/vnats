@@ -22,19 +22,11 @@ const (
 	SingleSubscriberStrictMessageOrder
 )
 
-const (
-	LogLevelTrace = iota
-	LogLevelDebug
-	LogLevelInfo
-	LogLevelWarn
-	LogLevelError
-)
-
 // LogFunc is a generic logging function to incorporate the logging of the library into the application.
 // It can be set via the Option of a Connection using WithLogger(l LogFunc).
-type LogFunc func(level int, format string, a ...interface{})
+type LogFunc func(format string, a ...interface{})
 
-var NoOpLogFunc = func(_ int, _ string, _ ...interface{}) {}
+var NoLogging = func(_ string, _ ...interface{}) {}
 
 // Connection is the main entry point for the library. It is used to create Publishers and Subscribers.
 // It is also used to close the connection to the NATS server/ cluster.
@@ -46,13 +38,13 @@ type Connection struct {
 
 // bridge is required to use a mock for the nats functions in unit tests
 type bridge interface {
-	// FetchOrAddStream returns a *nats.StreamInfo and for the given streamInfo name.
-	// It adds a new streamInfo if it does not exist.
-	FetchOrAddStream(streamConfig *nats.StreamConfig) (*nats.StreamInfo, error)
+	// EnsureStreamExists checks if a *nats.StreamInfo for the given streamConfig can be fetched.
+	// If not it will be added.
+	EnsureStreamExists(streamConfig *nats.StreamConfig) error
 
-	// CreateSubscription creates a natsSubscription, that can fetch messages from a specified subject.
+	// Subscribe creates a natsSubscription, that can fetch messages from a specified subject.
 	// The first token, separated by dots, of a subject will be interpreted as the streamName.
-	CreateSubscription(subject, consumerName string, mode SubscriptionMode) (*nats.Subscription, error)
+	Subscribe(subject, consumerName string, mode SubscriptionMode) (*nats.Subscription, error)
 
 	// Servers returns the list of NATS servers.
 	Servers() []string
@@ -75,7 +67,7 @@ type Option func(*Connection)
 // Connect returns Connection to a NATS server/ cluster and enables Publisher and Subscriber creation.
 func Connect(servers []string, options ...Option) (*Connection, error) {
 	conn := &Connection{
-		log: NoOpLogFunc,
+		log: NoLogging,
 	}
 
 	conn.applyOptions(options...)
@@ -92,19 +84,19 @@ func (c *Connection) applyOptions(options ...Option) {
 	}
 }
 
-// CreatePublisherArgs contains the arguments for creating a new Publisher.
+// PublisherArgs contains the arguments for creating a new Publisher.
 // By using a struct we are open for adding new arguments in the future
 // and the caller can omit arguments where the default value is OK.
-type CreatePublisherArgs struct {
+type PublisherArgs struct {
 	// StreamName is the name of the stream like "PRODUCTS" or "ORDERS".
 	// If it does not exist, the stream will be created.
 	StreamName string
 }
 
-// CreateSubscriberArgs contains the arguments for creating a new Subscriber.
+// SubscriberArgs contains the arguments for creating a new Subscriber.
 // By using a struct we are open for adding new arguments in the future
 // and the caller can omit arguments where the default value is OK.
-type CreateSubscriberArgs struct {
+type SubscriberArgs struct {
 	// ConsumerName contains the name of the consumer. By default, this should be the
 	// name of the service.
 	ConsumerName string
@@ -124,7 +116,6 @@ type CreateSubscriberArgs struct {
 
 // Close closes the NATS Connection and drains all subscriptions.
 func (c *Connection) Close() error {
-	c.log(LogLevelTrace, "Draining and closing open subscriptions..")
 	for _, sub := range c.subscribers {
 		if err := sub.subscription.Drain(); err != nil {
 			return err
@@ -132,12 +123,10 @@ func (c *Connection) Close() error {
 		sub.quitSignal <- true
 		close(sub.quitSignal)
 	}
-	c.log(LogLevelTrace, "Closed all open subscriptions.")
-	c.log(LogLevelTrace, "Closing NATS Connection...")
 	if err := c.nats.Drain(); err != nil {
 		return fmt.Errorf("NATS Connection could not be closed: %w", err)
 	}
-	c.log(LogLevelInfo, "NATS Connection closed.")
+	c.log("NATS Connection closed.")
 	return nil
 }
 

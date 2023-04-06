@@ -34,27 +34,24 @@ type Product struct {
 	Price       string
 	LastUpdated time.Time
 }
-var LogPrinter = func(_ int, format string, args ...interface{}) {
-	log.Printf(format,args)
-}
 // Define NATS server/ cluster
 var server = []string{"nats://ruser:T0pS3cr3t@localhost:4222"}
 
 func main() {
 	// Establish connection to NATS server
-	conn, err := vnats.Connect(server, vnats.WithLogger(LogPrinter))
+	conn, err := vnats.Connect(server, vnats.WithLogger(log.Printf))
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 	// Close NATS connection deferred
-	defer func(conn vnats.Connection) {
+	defer func(conn *vnats.Connection) {
 		if err := conn.Close(); err != nil {
 			log.Fatalf("NATS connection could not be closed: %v", err)
 		}
 	}(conn)
 
 	// Create publisher bound to stream `PRODUCTS`
-	pub, err := conn.CreatePublisher(vnats.CreatePublisherArgs{StreamName: "PRODUCTS"})
+	pub, err := conn.NewPublisher(vnats.PublisherArgs{StreamName: "PRODUCTS"})
 	if err != nil {
 		log.Fatalf("Could not create publisher: %v", err)
 	}
@@ -106,10 +103,6 @@ import (
 	"os/signal"
 )
 
-var LogPrinter = func(_ int, format string, args ...interface{}) {
-	log.Printf(format,args)
-}
-
 type Product struct {
 	Name        string
 	Price       string
@@ -121,13 +114,13 @@ var server = []string{"nats://ruser:T0pS3cr3t@localhost:4222"}
 
 func main() {
 	// Establish connection to NATS server
-	conn, err := vnats.Connect(server, vnats.WithLogger(LogPrinter))
+	conn, err := vnats.Connect(server, vnats.WithLogger(log.Printf))
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 	
 	// Unsubscribe to all open subscriptions and close NATS connection deferred
-	defer func(conn vnats.Connection) {
+	defer func(conn *vnats.Connection) {
 		if err := conn.Close(); err != nil {
 			log.Fatalf("NATS connection could not be closed: %v", err)
 		}
@@ -135,7 +128,7 @@ func main() {
 
 	// Create Pull-Subscriber bound to consumer `EXAMPLE_CONSUMER` 
 	// and the subject `PRODUCTS.PRICES`
-	sub, err := conn.CreateSubscriber(vnats.CreateSubscriberArgs{
+	sub, err := conn.NewSubscriber(vnats.SubscriberArgs{
 		ConsumerName: "EXAMPLE_CONSUMER",
 		Subject:      "PRODUCTS.PRICES",
 	})
@@ -143,8 +136,8 @@ func main() {
 		log.Fatalf("Could not create subscriber: %v", err)
 	}
 
-	// Subscribe and specify messageHandler
-	if err := sub.Subscribe(msgHandler); err != nil {
+	// Start subscribing with specify messageHandler
+	if err := sub.Start(msgHandler); err != nil {
 		log.Fatalf(err.Error())
 	}
 

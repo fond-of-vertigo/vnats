@@ -89,10 +89,9 @@ func Test_publisher_Publish(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tf := testLogger{t}
 			pub := &Publisher{
 				conn:       makeTestConnection(t, tt.args.streamName, 1, tt.args.data, tt.args.msgID, nil),
-				log:        tf.Logf,
+				log:        t.Logf,
 				streamName: tt.args.streamName,
 			}
 			err := pub.Publish(&Msg{
@@ -114,10 +113,9 @@ func Test_makePublisher(t *testing.T) {
 	}
 
 	natsTestBridge := makeTestNATSBridge(t, "PRODUCTS", 1, nil, "test")
-	tf := testLogger{t}
 	connectionEmptySubscriptions := &Connection{
 		nats:        natsTestBridge,
-		log:         tf.Logf,
+		log:         t.Logf,
 		subscribers: nil,
 	}
 
@@ -178,7 +176,7 @@ func Test_makePublisher(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.args.conn.CreatePublisher(CreatePublisherArgs{
+			got, err := tt.args.conn.NewPublisher(PublisherArgs{
 				StreamName: tt.args.streamName,
 			})
 

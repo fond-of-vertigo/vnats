@@ -32,6 +32,7 @@ type Msg struct {
 	Header Header
 }
 
+// NewMsg constructs a new Msg with the given data.
 func NewMsg(subject, id string, data []byte) *Msg {
 	return &Msg{
 		Subject: subject,

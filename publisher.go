@@ -8,21 +8,20 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// CreatePublisher creates a new Publisher that publishes to a NATS stream.
-func (c *Connection) CreatePublisher(args CreatePublisherArgs) (*Publisher, error) {
+// NewPublisher creates a new Publisher that publishes to a NATS stream.
+func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 	if err := validateStreamName(args.StreamName); err != nil {
 		return nil, err
 	}
-	_, err := c.nats.FetchOrAddStream(&nats.StreamConfig{
+	if err := c.nats.EnsureStreamExists(&nats.StreamConfig{
 		Name:       args.StreamName,
 		Subjects:   []string{args.StreamName + ".>"},
 		Storage:    defaultStorageType,
 		Replicas:   len(c.nats.Servers()),
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     time.Hour * 24 * 30,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Publisher could not be created: %w", err)
+	}); err != nil {
+		return nil, fmt.Errorf("publisher could not be created: %w", err)
 	}
 
 	p := &Publisher{
