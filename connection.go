@@ -26,6 +26,7 @@ const (
 // It can be set via the Option of a Connection using WithLogger(l LogFunc).
 type LogFunc func(format string, a ...interface{})
 
+// NoLogging is the default LogFunc. It logs nothing.
 var NoLogging = func(_ string, _ ...interface{}) {}
 
 // Connection is the main entry point for the library. It is used to create Publishers and Subscribers.

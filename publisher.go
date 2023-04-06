@@ -45,9 +45,7 @@ func (p *Publisher) Publish(msg *Msg) error {
 		return err
 	}
 
-	natsMsg := msg.toNATS()
-
-	err := p.conn.nats.PublishMsg(natsMsg, msg.MsgID)
+	err := p.conn.nats.PublishMsg(msg.toNATS(), msg.MsgID)
 	if err != nil {
 		return fmt.Errorf("message with msgID: %s @ %s could not be published: %w", msg.MsgID, msg.Subject, err)
 	}
