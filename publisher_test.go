@@ -94,7 +94,7 @@ func Test_publisher_Publish(t *testing.T) {
 				log:        t.Logf,
 				streamName: tt.args.streamName,
 			}
-			err := pub.Publish(&OutMsg{
+			err := pub.Publish(&Msg{
 				Subject: tt.args.subject,
 				MsgID:   tt.args.msgID,
 				Data:    tt.args.data,
@@ -176,7 +176,7 @@ func Test_makePublisher(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.args.conn.NewPublisher(NewPublisherArgs{
+			got, err := tt.args.conn.NewPublisher(PublisherArgs{
 				StreamName: tt.args.streamName,
 			})
 

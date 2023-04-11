@@ -9,20 +9,19 @@ import (
 )
 
 // NewPublisher creates a new Publisher that publishes to a NATS stream.
-func (c *Connection) NewPublisher(args NewPublisherArgs) (*Publisher, error) {
+func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 	if err := validateStreamName(args.StreamName); err != nil {
 		return nil, err
 	}
-	_, err := c.nats.GetOrAddStream(&nats.StreamConfig{
+	if err := c.nats.EnsureStreamExists(&nats.StreamConfig{
 		Name:       args.StreamName,
 		Subjects:   []string{args.StreamName + ".>"},
 		Storage:    defaultStorageType,
 		Replicas:   len(c.nats.Servers()),
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     time.Hour * 24 * 30,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Publisher could not be created: %w", err)
+	}); err != nil {
+		return nil, fmt.Errorf("publisher could not be created: %w", err)
 	}
 
 	p := &Publisher{
@@ -37,50 +36,18 @@ func (c *Connection) NewPublisher(args NewPublisherArgs) (*Publisher, error) {
 type Publisher struct {
 	conn       *Connection
 	streamName string
-	log        Log
+	log        LogFunc
 }
 
-// OutMsg contains the arguments publishing a new message.
-// By using a struct we are open for adding new arguments in the future
-// and the caller can omit arguments where the default value is OK.
-type OutMsg struct {
-	// Subject represents the destination subject name, like "PRODUCTS.new"
-	Subject string
-
-	// Reply represents an optional subject name where a reply message should be sent to.
-	// This value is just distributed, whether the response is sent to the specified subject depends on the Subscriber.
-	Reply string
-
-	// MsgID represents a unique value for the message, like a hash value of Data.
-	// Semantically equal messages must lead to the same MsgID at any time.
-	// E.g. two messages with the same Data must have the same MsgID.
-	//
-	// The MsgID is used for deduplication.
-	MsgID string
-
-	// Data represents the raw byte data to send. The data is sent as-is.
-	Data []byte
-
-	// Header represents the optional Header for the message.
-	Header Header
-}
-
-// Publish sends the message (data) to the given subject.
-func (p *Publisher) Publish(outMsg *OutMsg) error {
-	if err := validateSubject(outMsg.Subject, p.streamName); err != nil {
+// Publish publishes the message (data) to the given subject.
+func (p *Publisher) Publish(msg *Msg) error {
+	if err := validateSubject(msg.Subject, p.streamName); err != nil {
 		return err
 	}
 
-	msg := nats.Msg{
-		Subject: outMsg.Subject,
-		Reply:   outMsg.Reply,
-		Data:    outMsg.Data,
-		Header:  nats.Header(outMsg.Header),
-	}
-
-	err := p.conn.nats.PublishMsg(&msg, outMsg.MsgID)
+	err := p.conn.nats.PublishMsg(msg.toNATS(), msg.MsgID)
 	if err != nil {
-		return fmt.Errorf("message with msgID: %s @ %s could not be published: %w", outMsg.MsgID, outMsg.Subject, err)
+		return fmt.Errorf("message with msgID: %s @ %s could not be published: %w", msg.MsgID, msg.Subject, err)
 	}
 	return nil
 }

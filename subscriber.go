@@ -7,11 +7,11 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-// NewSubscriber creates a new Subscriber that subscribes to a NATS consumer.
-func (c *Connection) NewSubscriber(args NewSubscriberArgs) (*Subscriber, error) {
-	subscription, err := c.nats.CreateSubscription(args.Subject, args.ConsumerName, args.Mode)
+// NewSubscriber creates a new Subscriber that subscribes to a NATS stream.
+func (c *Connection) NewSubscriber(args SubscriberArgs) (*Subscriber, error) {
+	subscription, err := c.nats.Subscribe(args.Subject, args.ConsumerName, args.Mode)
 	if err != nil {
-		return nil, fmt.Errorf("Subscriber could not be created: %w", err)
+		return nil, fmt.Errorf("subscriber could not be created: %w", err)
 	}
 
 	sub := &Subscriber{
@@ -26,24 +26,23 @@ func (c *Connection) NewSubscriber(args NewSubscriberArgs) (*Subscriber, error) 
 	return sub, nil
 }
 
-// MsgHandler is the type of function the Subscriber has to implement
-// to process an incoming message.
-type MsgHandler func(msg InMsg) error
+// MsgHandler is the type of function the Subscriber has to implement to process an incoming message.
+type MsgHandler func(msg Msg) error
 
-// Subscriber subscribes to a NATS consumer and handles incoming messages.
+// Subscriber subscribes to a NATS consumer and pulls messages to handle by MsgHandler.
 type Subscriber struct {
 	conn         *Connection
 	subscription *nats.Subscription
-	log          Log
+	log          LogFunc
 	consumerName string
 	handler      MsgHandler
 	quitSignal   chan bool
 }
 
-// Subscribe subscribes to the NATS consumer and starts a go-routine that handles incoming messages.
-func (s *Subscriber) Subscribe(handler MsgHandler) (err error) {
+// Start subscribes to the NATS consumer and starts a go-routine that handles pulled messages.
+func (s *Subscriber) Start(handler MsgHandler) (err error) {
 	if s.handler != nil {
-		return fmt.Errorf("handler is already set, don't call Subscribe() multiple times")
+		return fmt.Errorf("handler is already set, don't call Start() multiple times")
 	}
 
 	s.handler = handler
@@ -55,7 +54,7 @@ func (s *Subscriber) Subscribe(handler MsgHandler) (err error) {
 				s.log("Received signal to quit subscription go-routine.")
 				return
 			default:
-				s.fetchMessages()
+				s.processMessages()
 			}
 		}
 	}()
@@ -63,39 +62,36 @@ func (s *Subscriber) Subscribe(handler MsgHandler) (err error) {
 	return nil
 }
 
-func (s *Subscriber) fetchMessages() {
-	msg, err := s.subscription.Fetch(1)
-	if errors.Is(err, nats.ErrTimeout) { // ErrTimeout is expected/ no new messages, so we don't log it
-		return
-	} else if err != nil {
-		s.log("Failed to receive msg: %v", err)
-		return
-	}
-	firstMessage := msg[0]
-
-	inMsg := makeInMsg(firstMessage)
-	err = s.handler(inMsg)
-	if err != nil {
-		s.log("Message handle error, will be NAKed: %v", err)
-		if err := firstMessage.NakWithDelay(defaultNakDelay); err != nil {
-			s.log("msg.Nak() failed: %s", err)
-		}
-		return
-	}
-
-	if err = firstMessage.Ack(); err != nil {
-		s.log("msg.Ack() failed: %v", err)
-	}
-}
-
-// Unsubscribe unsubscribes from the NATS consumer.
-func (s *Subscriber) Unsubscribe() error {
+// Stop unsubscribes the consumer from the NATS stream.
+func (s *Subscriber) Stop() error {
 	if err := s.subscription.Unsubscribe(); err != nil {
 		return err
 	}
 
 	s.handler = nil
-	s.log("Unsubscribed to consumer %s", s.consumerName)
+	s.log("Unsubscribed consumer %s", s.consumerName)
 
 	return nil
+}
+
+func (s *Subscriber) processMessages() {
+	natsMsgs, err := s.subscription.Fetch(1) // Fetch only one msg at once to keep the order
+	if errors.Is(err, nats.ErrTimeout) {     // ErrTimeout is expected/ no new messages, so we don't log it
+		return
+	} else if err != nil {
+		s.log("Failed to receive msg: %v", err)
+		return
+	}
+
+	msg := makeMsg(natsMsgs[0])
+	if err = s.handler(msg); err != nil {
+		s.log("Message handle error, will be NAKed: %v", err)
+		if err := natsMsgs[0].NakWithDelay(defaultNakDelay); err != nil {
+			s.log("natsMsg.Nak() failed: %s", err)
+		}
+	}
+
+	if err = natsMsgs[0].Ack(); err != nil {
+		s.log("natsMsg.Ack() failed: %v", err)
+	}
 }
