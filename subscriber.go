@@ -89,6 +89,7 @@ func (s *Subscriber) processMessages() {
 		if err := natsMsgs[0].NakWithDelay(defaultNakDelay); err != nil {
 			s.log("natsMsg.Nak() failed: %s", err)
 		}
+		return
 	}
 
 	if err = natsMsgs[0].Ack(); err != nil {
