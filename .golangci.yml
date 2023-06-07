@@ -1,0 +1,51 @@
+run:
+  deadline: 5m
+
+output:
+  sort-results: true
+
+linters:
+  enable:
+    - asciicheck
+    - dogsled
+    - durationcheck
+    - errcheck
+    - exportloopref
+    - gci
+    - gofumpt
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - nilerr
+    - prealloc
+    - predeclared
+    - revive
+    - revive
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+
+issues:
+  max-same-issues: 0
+  exclude-use-default: false
+  exclude:
+    - should have a package comment
+
+
+linters-settings:
+  gofumpt:
+    extra-rules: true
+    simplify: true
+
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/fond-of-vertigo/vnats)

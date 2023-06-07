@@ -4,13 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/nats-io/nats.go"
 	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/nats-io/nats.go"
 )
+
+const integrationTestStreamName = "IntegrationTests"
 
 type testBridge struct {
 	testing.TB
@@ -20,17 +23,16 @@ type testBridge struct {
 	wantMessageID  string
 }
 
+func (b *testBridge) EnsureStreamExists(_ *nats.StreamConfig) error {
+	return nil
+}
+
 func (b *testBridge) DeleteStream(_ string) error {
 	return nil
 }
 
-func (b *testBridge) DeleteConsumers(_ string, _ string) error {
+func (b *testBridge) DeleteConsumers(_, _ string) error {
 	return nil
-}
-
-func (b *testBridge) GetOrAddStream(_ *nats.StreamConfig) (*nats.StreamInfo, error) {
-	return nil, nil
-
 }
 
 func (b *testBridge) Servers() []string {
@@ -38,7 +40,7 @@ func (b *testBridge) Servers() []string {
 }
 
 func (b *testBridge) PublishMsg(msg *nats.Msg, msgID string) error {
-	b.Logf("%s\n", string(msg.Data))
+	b.Logf("%s", string(msg.Data))
 	if diff := cmp.Diff(msg.Data, b.wantData); diff != "" {
 		err := fmt.Errorf("wrong message found=%s (id=%s) want=%s (id=%s)", string(msg.Data), msgID, b.wantData, b.wantMessageID)
 		b.Fatal(err, diff)
@@ -49,7 +51,7 @@ func (b *testBridge) PublishMsg(msg *nats.Msg, msgID string) error {
 	return nil
 }
 
-func (b *testBridge) CreateSubscription(_ string, _ string, _ SubscriptionMode) (subscription, error) {
+func (b *testBridge) Subscribe(_, _ string, _ SubscriptionMode) (*nats.Subscription, error) {
 	return nil, nil
 }
 
@@ -67,8 +69,8 @@ func makeTestNATSBridge(t testing.TB, streamName string, currentSequenceNumber u
 	}
 }
 
-func makeTestConnection(t *testing.T, streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []*subscriber) *connection {
-	return &connection{
+func makeTestConnection(t *testing.T, streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []*Subscriber) *Connection {
+	return &Connection{
 		nats:        makeTestNATSBridge(t, streamName, currentSequenceNumber, wantData, wantMessageID),
 		log:         t.Logf,
 		subscribers: wantSubs,
@@ -76,7 +78,7 @@ func makeTestConnection(t *testing.T, streamName string, currentSequenceNumber u
 }
 
 func createStream(b *natsBridge, streamName string) error {
-	_, err := b.GetOrAddStream(&nats.StreamConfig{
+	return b.EnsureStreamExists(&nats.StreamConfig{
 		Name:       streamName,
 		Subjects:   []string{streamName + ".>"},
 		Storage:    defaultStorageType,
@@ -84,18 +86,17 @@ func createStream(b *natsBridge, streamName string) error {
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     time.Hour * 24 * 30,
 	})
-	return err
 }
 
 func deleteStream(b *natsBridge, streamName string) error {
 	return b.jetStreamContext.DeleteStream(streamName)
 }
 
-func deleteConsumer(c *connection, b *natsBridge, streamName string) error {
+func deleteConsumer(c *Connection, b *natsBridge, streamName string) error {
 	for _, sub := range c.subscribers {
 		consumerName := sub.consumerName
 
-		if err := sub.Unsubscribe(); err != nil {
+		if err := sub.Stop(); err != nil {
 			return err
 		}
 
@@ -106,8 +107,8 @@ func deleteConsumer(c *connection, b *natsBridge, streamName string) error {
 	return nil
 }
 
-func makeIntegrationTestConn(t *testing.T, streamName string) Connection {
-	conn := &connection{
+func makeIntegrationTestConn(t *testing.T) *Connection {
+	conn := &Connection{
 		log: t.Logf,
 	}
 
@@ -122,7 +123,7 @@ func makeIntegrationTestConn(t *testing.T, streamName string) Connection {
 	}
 	nb.connection, err = nats.Connect(url)
 	if err != nil {
-		t.Error(fmt.Errorf("could not make NATS connection to %s: %w", url, err))
+		t.Errorf("could not make NATS Connection to %s: %v", url, err)
 	}
 
 	nb.jetStreamContext, err = nb.connection.JetStream()
@@ -132,19 +133,19 @@ func makeIntegrationTestConn(t *testing.T, streamName string) Connection {
 
 	conn.nats = nb
 
-	if err := deleteConsumer(conn, nb, streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Errorf("Could not delete consumers %s: %v.", streamName, err)
+	if err := deleteConsumer(conn, nb, integrationTestStreamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete consumers %s: %v.", integrationTestStreamName, err)
 	}
-	if err := deleteStream(nb, streamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
-		t.Errorf("Could not delete stream %s: %v.", streamName, err)
+	if err := deleteStream(nb, integrationTestStreamName); err != nil && !errors.Is(err, nats.ErrStreamNotFound) {
+		t.Errorf("Could not delete stream %s: %v.", integrationTestStreamName, err)
 	}
-	if err := createStream(nb, streamName); err != nil {
-		t.Errorf("Stream %s could not be created: %v", streamName, err)
+	if err := createStream(nb, integrationTestStreamName); err != nil {
+		t.Errorf("Stream %s could not be created: %v", integrationTestStreamName, err)
 	}
 	return conn
 }
 
-func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []string) error {
+func cmpStringSlicesIgnoreOrder(expectedMessages, receivedMessages []string) error {
 	if len(expectedMessages) == 0 && len(receivedMessages) == 0 {
 		return nil
 	}
@@ -163,7 +164,7 @@ func cmpStringSlicesIgnoreOrder(expectedMessages []string, receivedMessages []st
 	return nil
 }
 
-func publishManyMessages(t *testing.T, conn Connection, subject string, messageCount int) {
+func publishManyMessages(t *testing.T, conn *Connection, subject string, messageCount int) {
 	var messages []string
 	for i := 0; i < messageCount; i++ {
 		messages = append(messages, fmt.Sprintf("msg-%d", i))
@@ -172,15 +173,15 @@ func publishManyMessages(t *testing.T, conn Connection, subject string, messageC
 	publishStringMessages(t, conn, subject, messages)
 }
 
-func publishStringMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
-	pub, err := conn.NewPublisher(NewPublisherArgs{
+func publishStringMessages(t *testing.T, conn *Connection, subject string, publishMessages []string) {
+	pub, err := conn.NewPublisher(PublisherArgs{
 		StreamName: integrationTestStreamName,
 	})
 	if err != nil {
 		t.Error(err)
 	}
 	for idx, msg := range publishMessages {
-		if err := pub.Publish(&OutMsg{
+		if err := pub.Publish(&Msg{
 			Subject: subject,
 			MsgID:   fmt.Sprintf("msg-%d", idx),
 			Data:    []byte(msg),
@@ -190,8 +191,8 @@ func publishStringMessages(t *testing.T, conn Connection, subject string, publis
 	}
 }
 
-func publishTestMessageStructMessages(t *testing.T, conn Connection, subject string, publishMessages []string) {
-	pub, err := conn.NewPublisher(NewPublisherArgs{
+func publishTestMessageStructMessages(t *testing.T, conn *Connection, subject string, publishMessages []string) {
+	pub, err := conn.NewPublisher(PublisherArgs{
 		StreamName: integrationTestStreamName,
 	})
 	if err != nil {
@@ -204,7 +205,7 @@ func publishTestMessageStructMessages(t *testing.T, conn Connection, subject str
 			t.Error(err)
 		}
 
-		if err := pub.Publish(&OutMsg{
+		if err := pub.Publish(&Msg{
 			Subject: subject,
 			MsgID:   fmt.Sprintf("msg-%d", idx),
 			Data:    dataAsBytes,
@@ -214,12 +215,12 @@ func publishTestMessageStructMessages(t *testing.T, conn Connection, subject str
 	}
 }
 
-func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
+func retrieveStringMessages(sub *Subscriber, expectedMessages []string) ([]string, error) {
 	var receivedMessages []string
 	done := make(chan bool)
 
-	handler := func(msg InMsg) error {
-		receivedMessages = append(receivedMessages, string(msg.Data()))
+	handler := func(msg Msg) error {
+		receivedMessages = append(receivedMessages, string(msg.Data))
 
 		if len(receivedMessages) == len(expectedMessages) {
 			done <- true
@@ -233,13 +234,13 @@ func retrieveStringMessages(sub Subscriber, expectedMessages []string) ([]string
 	return receivedMessages, nil
 }
 
-func retrieveTestMessageStructMessages(sub Subscriber, expectedMessages []string) ([]string, error) {
+func retrieveTestMessageStructMessages(sub *Subscriber, expectedMessages []string) ([]string, error) {
 	var receivedMessages []string
 	done := make(chan bool)
 
-	handler := func(msg InMsg) error {
+	handler := func(msg Msg) error {
 		var data testMessagePayload
-		if err := json.Unmarshal(msg.Data(), &data); err != nil {
+		if err := json.Unmarshal(msg.Data, &data); err != nil {
 			return err
 		}
 		receivedMessages = append(receivedMessages, data.Message)
@@ -256,8 +257,8 @@ func retrieveTestMessageStructMessages(sub Subscriber, expectedMessages []string
 	return receivedMessages, nil
 }
 
-func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) error {
-	if err := sub.Subscribe(handler); err != nil {
+func waitFinishMsgHandler(sub *Subscriber, handler MsgHandler, done chan bool) error {
+	if err := sub.Start(handler); err != nil {
 		return err
 	}
 
@@ -269,8 +270,8 @@ func waitFinishMsgHandler(sub Subscriber, handler MsgHandler, done chan bool) er
 	}
 }
 
-func createSubscriber(t *testing.T, conn Connection, consumerName string, subject string, mode SubscriptionMode) Subscriber {
-	sub, err := conn.NewSubscriber(NewSubscriberArgs{
+func createSubscriber(t *testing.T, conn *Connection, consumerName, subject string, mode SubscriptionMode) *Subscriber {
+	sub, err := conn.NewSubscriber(SubscriberArgs{
 		ConsumerName: consumerName,
 		Subject:      subject,
 		Mode:         mode,

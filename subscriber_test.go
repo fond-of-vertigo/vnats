@@ -19,7 +19,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	var tests = []subscribeStringsConfig{
+	tests := []subscribeStringsConfig{
 		{
 			name:             "Publish in mode: SingleSubscriberStrictMessageOrder empty payload",
 			publishMessages:  []string{},
@@ -32,47 +32,54 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 			publishMessages:  []string{},
 			expectedMessages: []string{},
 			mode:             SingleSubscriberStrictMessageOrder,
-			wantErr:          false},
+			wantErr:          false,
+		},
 		{
 			name:             "Publish in mode: SingleSubscriberStrictMessageOrder, no error expected",
 			publishMessages:  []string{"hello", "world"},
 			expectedMessages: []string{"hello", "world"},
 			mode:             SingleSubscriberStrictMessageOrder,
-			wantErr:          false},
+			wantErr:          false,
+		},
 		{
 			name:             "Publish in mode: SingleSubscriberStrictMessageOrder, wrong msg order, error expected",
 			publishMessages:  []string{"hello", "world"},
 			expectedMessages: []string{"world", "hello"},
 			mode:             SingleSubscriberStrictMessageOrder,
-			wantErr:          true},
+			wantErr:          true,
+		},
 		{
 			name:             "Publish in mode: MultipleSubscribersAllowed, no error expected",
 			publishMessages:  []string{"hello", "world"},
 			expectedMessages: []string{"hello", "world"},
 			mode:             MultipleSubscribersAllowed,
-			wantErr:          false},
+			wantErr:          false,
+		},
 		{
 			name:             "Publish in mode: MultipleSubscribersAllowed with ignored order, no error expected",
 			publishMessages:  []string{"hello", "world"},
 			expectedMessages: []string{"world", "hello"},
 			mode:             MultipleSubscribersAllowed,
-			wantErr:          false},
+			wantErr:          false,
+		},
 		{
 			name:             "Publish in mode: MultipleSubscribersAllowed wrong received message, error expected",
 			publishMessages:  []string{"hello", "world"},
 			expectedMessages: []string{"world"},
 			mode:             MultipleSubscribersAllowed,
-			wantErr:          true},
+			wantErr:          true,
+		},
 		{
 			name:             "Publish in mode: SingleSubscriberStrictMessageOrder wrong received message, error expected",
 			publishMessages:  []string{"hello", "world"},
 			expectedMessages: []string{"world"},
 			mode:             SingleSubscriberStrictMessageOrder,
-			wantErr:          true},
+			wantErr:          true,
+		},
 	}
 	subject := integrationTestStreamName + ".PubSubTest.string"
 
-	dataTypeValidators := []func(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error{
+	dataTypeValidators := []func(t *testing.T, conn *Connection, sub *Subscriber, config subscribeStringsConfig) error{
 		subscriberStringTest,
 		subscriberStructTest,
 	}
@@ -80,9 +87,9 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 		t.Logf("Running datatype-validator #%d", validatorIdx)
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				conn := makeIntegrationTestConn(t, integrationTestStreamName)
+				conn := makeIntegrationTestConn(t)
 
-				sub, err := conn.NewSubscriber(NewSubscriberArgs{
+				sub, err := conn.NewSubscriber(SubscriberArgs{
 					ConsumerName: "TestConsumer",
 					Subject:      subject,
 					Mode:         tt.mode,
@@ -103,7 +110,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 	}
 }
 
-func subscriberStringTest(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error {
+func subscriberStringTest(t *testing.T, conn *Connection, sub *Subscriber, config subscribeStringsConfig) error {
 	subject := integrationTestStreamName + ".PubSubTest.string"
 	publishStringMessages(t, conn, subject, config.publishMessages)
 
@@ -134,7 +141,7 @@ func subscriberStringTest(t *testing.T, conn Connection, sub Subscriber, config 
 	return nil
 }
 
-func subscriberStructTest(t *testing.T, conn Connection, sub Subscriber, config subscribeStringsConfig) error {
+func subscriberStructTest(t *testing.T, conn *Connection, sub *Subscriber, config subscribeStringsConfig) error {
 	subject := integrationTestStreamName + ".PubSubTest.string"
 	publishTestMessageStructMessages(t, conn, subject, config.publishMessages)
 
@@ -170,22 +177,22 @@ func TestSubscriber_CallTwice(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 	subject := integrationTestStreamName + ".subscribeTwice"
-	conn := makeIntegrationTestConn(t, integrationTestStreamName)
+	conn := makeIntegrationTestConn(t)
 	publishStringMessages(t, conn, subject, []string{})
-	sub, err := conn.NewSubscriber(NewSubscriberArgs{
+	sub, err := conn.NewSubscriber(SubscriberArgs{
 		ConsumerName: "TestConsumer",
 		Subject:      subject,
 	})
 	if err != nil {
 		t.Error(err)
 	}
-	handler := func(_ InMsg) error { return nil }
+	handler := func(_ Msg) error { return nil }
 
-	if err := sub.Subscribe(handler); err != nil {
+	if err := sub.Start(handler); err != nil {
 		t.Error(err)
 	}
-	err = sub.Subscribe(handler)
-	if err.Error() != "handler is already set, don't call Subscribe() multiple times" {
+	err = sub.Start(handler)
+	if err.Error() != "handler is already set, don't call Start() multiple times" {
 		t.Errorf("Error expeceted, but not received! Err: %v", err)
 	}
 	if err := conn.Close(); err != nil {
@@ -197,7 +204,7 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
-	var restDownTestCases = []struct {
+	restDownTestCases := []struct {
 		name                    string
 		mode                    SubscriptionMode
 		minCallFirstMsg         int
@@ -206,7 +213,7 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 		waitUntilCheckCallCount time.Duration
 	}{
 		{
-			name:                    "Strict-In-Order subscriber always fails, never calls second message",
+			name:                    "Strict-In-Order Subscriber always fails, never calls second message",
 			mode:                    SingleSubscriberStrictMessageOrder,
 			minCallFirstMsg:         2,
 			minCallSecondMsg:        0,
@@ -225,24 +232,23 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 	subject := integrationTestStreamName + ".subscriberAlwaysFails"
 	for _, test := range restDownTestCases {
 		t.Run(test.name, func(t *testing.T) {
-
-			conn := makeIntegrationTestConn(t, integrationTestStreamName)
+			conn := makeIntegrationTestConn(t)
 			publishStringMessages(t, conn, subject, []string{"hello", "world"})
 			sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, test.mode)
 
 			callCountHello, callCountWorld := 0, 0
 
-			handler := func(msg InMsg) error {
-				switch string(msg.Data()) {
+			handler := func(msg Msg) error {
+				switch string(msg.Data) {
 				case "hello":
-					callCountHello += 1
+					callCountHello++
 				case "world":
-					callCountWorld += 1
+					callCountWorld++
 				}
 				return fmt.Errorf("REST-Endpoint is down, retry later")
 			}
 
-			if err := sub.Subscribe(handler); err != nil {
+			if err := sub.Start(handler); err != nil {
 				t.Error(err)
 			}
 
@@ -269,7 +275,7 @@ type subscriberConfig struct {
 }
 
 type subscriptionState struct {
-	subscriber     Subscriber
+	subscriber     *Subscriber
 	SuccessfulMsgs int
 	FailedMsgs     int
 }
@@ -286,7 +292,7 @@ func TestSubscriberMultiple(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "One subscriber down, one up - messages will be handled by up subscriber",
+			name: "One Subscriber down, one up - messages will be handled by up Subscriber",
 			args: args{
 				subscribers: []subscriberConfig{
 					{
@@ -308,7 +314,7 @@ func TestSubscriberMultiple(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Both subscriber down, constantly retrieving naked messages",
+			name: "Both Subscriber down, constantly retrieving naked messages",
 			args: args{
 				subscribers: []subscriberConfig{
 					{
@@ -337,10 +343,9 @@ func TestSubscriberMultiple(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			var s []*subscriptionState
 
-			conn := makeIntegrationTestConn(t, integrationTestStreamName)
+			conn := makeIntegrationTestConn(t)
 
 			for idx, subConfig := range tt.args.subscribers {
 				sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, subConfig.mode)
@@ -350,7 +355,7 @@ func TestSubscriberMultiple(t *testing.T) {
 
 				handler := makeHandlerSubscriber(t, subConfig.alwaysFail, &subState, idx)
 
-				if err := s[idx].subscriber.Subscribe(handler); err != nil && !tt.wantErr {
+				if err := s[idx].subscriber.Start(handler); err != nil && !tt.wantErr {
 					t.Error(err)
 				}
 			}
@@ -371,14 +376,14 @@ func TestSubscriberMultiple(t *testing.T) {
 	}
 }
 
-func makeHandlerSubscriber(t *testing.T, alwaysFail bool, s *subscriptionState, idx int) func(msg InMsg) error {
-	handler := func(msg InMsg) error {
+func makeHandlerSubscriber(t *testing.T, alwaysFail bool, s *subscriptionState, idx int) func(msg Msg) error {
+	handler := func(msg Msg) error {
 		if alwaysFail {
-			s.FailedMsgs += 1
+			s.FailedMsgs++
 			t.Logf("Subscriber %v: Failed msg handeling, failesp: %v", idx, s.FailedMsgs)
 			return fmt.Errorf("msg handleing failed")
 		}
-		s.SuccessfulMsgs += 1
+		s.SuccessfulMsgs++
 		t.Logf("Subscriber %v: Successful msg handeling, successes: %v", idx, s.SuccessfulMsgs)
 		return nil
 	}
