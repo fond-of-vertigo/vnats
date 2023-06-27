@@ -67,31 +67,21 @@ func (b *natsBridge) EnsureStreamExists(streamConfig *nats.StreamConfig) error {
 }
 
 func (b *natsBridge) Subscribe(subject, consumerName string, mode SubscriptionMode) (*nats.Subscription, error) {
-	streamName := strings.Split(subject, ".")[0]
-	config := &nats.ConsumerConfig{
-		Durable:   consumerName,
-		AckPolicy: nats.AckExplicitPolicy,
-		AckWait:   defaultAckWait,
-	}
-
-	patchConsumerConfig(config, mode)
-
-	if _, err := b.fetchOrAddConsumer(streamName, config); err != nil {
-		return nil, err
-	}
-
-	return b.jetStreamContext.PullSubscribe(subject, consumerName, nats.Bind(streamName, consumerName))
-}
-
-func patchConsumerConfig(config *nats.ConsumerConfig, mode SubscriptionMode) {
+	var maxAckPending int
 	switch mode {
 	case MultipleSubscribersAllowed:
-		config.MaxAckPending = natsServer.JsDefaultMaxAckPending
+		maxAckPending = natsServer.JsDefaultMaxAckPending
 	case SingleSubscriberStrictMessageOrder:
-		config.MaxAckPending = 1
+		maxAckPending = 1
 	default:
-		config.MaxAckPending = natsServer.JsDefaultMaxAckPending
+		return nil, fmt.Errorf("unknown SubscriptionMode %v", mode)
 	}
+
+	return b.jetStreamContext.PullSubscribe(subject, consumerName,
+		nats.AckExplicit(),
+		nats.MaxAckPending(maxAckPending),
+		nats.AckWait(defaultAckWait),
+	)
 }
 
 func (b *natsBridge) fetchOrAddConsumer(streamName string, consumerConfig *nats.ConsumerConfig) (*nats.ConsumerInfo, error) {
