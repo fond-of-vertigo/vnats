@@ -1,7 +1,6 @@
 package vnats
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -74,7 +73,7 @@ func (b *natsBridge) Subscribe(subject, consumerName string, mode SubscriptionMo
 	case SingleSubscriberStrictMessageOrder:
 		maxAckPending = 1
 	default:
-		return nil, fmt.Errorf("unknown SubscriptionMode %v", mode)
+		maxAckPending = natsServer.JsDefaultMaxAckPending
 	}
 
 	return b.jetStreamContext.PullSubscribe(subject, consumerName,
@@ -82,28 +81,6 @@ func (b *natsBridge) Subscribe(subject, consumerName string, mode SubscriptionMo
 		nats.MaxAckPending(maxAckPending),
 		nats.AckWait(defaultAckWait),
 	)
-}
-
-func (b *natsBridge) fetchOrAddConsumer(streamName string, consumerConfig *nats.ConsumerConfig) (*nats.ConsumerInfo, error) {
-	ci, err := b.jetStreamContext.ConsumerInfo(streamName, consumerConfig.Durable)
-	if errors.Is(err, nats.ErrConsumerNotFound) {
-		b.log("Consumer %s not found, about to add consumer.", consumerConfig.Durable)
-		if ci, err = b.jetStreamContext.AddConsumer(streamName, consumerConfig); err != nil {
-			return nil, fmt.Errorf("NATS consumer could not be fetched: %w", err)
-		}
-		b.log("Created new NATS consumer %s", consumerConfig.Durable)
-		return ci, nil
-	} else if err != nil {
-		return nil, fmt.Errorf("consumer %s could not be fetched: %w", consumerConfig.Durable, err)
-	}
-
-	if ci.Config.MaxAckPending != consumerConfig.MaxAckPending {
-		b.log("Consumer %s SubscriptionMode has changed. Use the existing SubscriptionMode=%v or delete consumer.",
-			consumerConfig.Durable, SubscriptionMode(ci.Config.MaxAckPending))
-		return nil, fmt.Errorf("stream consumer SubscriptionMode %v does not match with consumerConfig", SubscriptionMode(ci.Config.MaxAckPending))
-	}
-
-	return ci, nil
 }
 
 func (b *natsBridge) Servers() []string {
