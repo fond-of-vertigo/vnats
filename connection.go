@@ -154,7 +154,7 @@ func WithLogger(log LogFunc) Option {
 // MustConnectToNATS to NATS Server. This function panics if the connection could not be established.
 // servers: List of NATS servers in the form of "nats://<user:password>@<host>:<port>"
 // logger: an optional slog.Logger instance
-func (c *Connection) MustConnectToNATS(servers []string, logger *slog.Logger) *Connection {
+func MustConnectToNATS(servers []string, logger *slog.Logger) *Connection {
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
 	}
