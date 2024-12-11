@@ -2,6 +2,9 @@ package vnats
 
 import (
 	"fmt"
+	"log/slog"
+	"os"
+	"strings"
 
 	"github.com/nats-io/nats.go"
 )
@@ -28,6 +31,13 @@ type LogFunc func(format string, a ...interface{})
 
 // NoLogging is the default LogFunc. It logs nothing.
 var NoLogging = func(_ string, _ ...interface{}) {}
+
+type Config struct {
+	Password string
+	Username string
+	Hosts    string
+	Port     int
+}
 
 // Connection is the main entry point for the library. It is used to create Publishers and Subscribers.
 // It is also used to close the connection to the NATS server/ cluster.
@@ -138,4 +148,39 @@ func WithLogger(log LogFunc) Option {
 	return func(c *Connection) {
 		c.log = log
 	}
+}
+
+// MustConnectToNATS to NATS Server. This function panics if the connection could not be established.
+// servers: List of NATS servers in the form of "nats://<user:password>@<host>:<port>"
+// logger: an optional slog.Logger instance
+func (c *Connection) MustConnectToNATS(servers []string, logger *slog.Logger) *Connection {
+	if logger == nil {
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
+	}
+	natsConn, err := Connect(servers, WithLogger(logger.Info))
+	if err != nil {
+		panic("error while connecting to nats: " + err.Error())
+	}
+	return natsConn
+}
+
+// NATSServers returns a list of NATS servers in the form of "nats://<user:password>@<host>:<port>"
+func NATSServers(cfg *Config) []string {
+	parsedServers := trimSpaceSlice(strings.Split(cfg.Hosts, ","))
+	servers := make([]string, 0, len(parsedServers))
+
+	for _, server := range parsedServers {
+		s := fmt.Sprintf("nats://%s:%s@%s:%d", cfg.Username, cfg.Password, server, cfg.Port)
+		servers = append(servers, s)
+	}
+
+	return servers
+}
+
+func trimSpaceSlice(values []string) []string {
+	trimmed := make([]string, len(values))
+	for i, value := range values {
+		trimmed[i] = strings.TrimSpace(value)
+	}
+	return trimmed
 }
