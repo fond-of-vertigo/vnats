@@ -32,6 +32,7 @@ type LogFunc func(format string, a ...interface{})
 // NoLogging is the default LogFunc. It logs nothing.
 var NoLogging = func(_ string, _ ...interface{}) {}
 
+// Config is a struct to hold the configuration of a NATS connection.
 type Config struct {
 	Password string
 	Username string
