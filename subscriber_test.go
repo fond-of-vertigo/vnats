@@ -377,7 +377,7 @@ func TestSubscriberMultiple(t *testing.T) {
 }
 
 func makeHandlerSubscriber(t *testing.T, alwaysFail bool, s *subscriptionState, idx int) func(msg Msg) error {
-	handler := func(msg Msg) error {
+	handler := func(_ Msg) error {
 		if alwaysFail {
 			s.FailedMsgs++
 			t.Logf("Subscriber %v: Failed msg handeling, failesp: %v", idx, s.FailedMsgs)

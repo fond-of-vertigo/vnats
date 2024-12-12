@@ -23,7 +23,7 @@ func newNATSBridge(servers []string, log LogFunc) (*natsBridge, error) {
 	url := strings.Join(servers, ",")
 
 	nb.connection, err = nats.Connect(url,
-		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
+		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
 			log("Got disconnected: %v", err)
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
