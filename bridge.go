@@ -2,6 +2,7 @@ package vnats
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	natsServer "github.com/nats-io/nats-server/v2/server"
@@ -11,12 +12,12 @@ import (
 type natsBridge struct {
 	connection       *nats.Conn
 	jetStreamContext nats.JetStreamContext
-	log              LogFunc
+	logger           *slog.Logger
 }
 
-func newNATSBridge(servers []string, log LogFunc) (*natsBridge, error) {
+func newNATSBridge(servers []string, logger *slog.Logger) (*natsBridge, error) {
 	nb := &natsBridge{
-		log: log,
+		logger: logger,
 	}
 
 	var err error
@@ -24,13 +25,13 @@ func newNATSBridge(servers []string, log LogFunc) (*natsBridge, error) {
 
 	nb.connection, err = nats.Connect(url,
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
-			log("Got disconnected: %v", err)
+			logger.Error("Got disconnected", slog.String("error", err.Error()))
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
-			log("Got reconnected to %v!", nc.ConnectedUrl())
+			logger.Error("Got reconnected to!", slog.String("url", nc.ConnectedUrl()))
 		}),
 		nats.ClosedHandler(func(nc *nats.Conn) {
-			log("Connection closed: %v", nc.LastError())
+			logger.Error("Connection closed", slog.String("error", nc.LastError().Error()))
 		}))
 	if err != nil {
 		return nil, fmt.Errorf("could not make NATS Connection to %s: %w", url, err)
@@ -54,13 +55,13 @@ func (b *natsBridge) EnsureStreamExists(streamConfig *nats.StreamConfig) error {
 		if err != nats.ErrStreamNotFound {
 			return fmt.Errorf("NATS streamInfo-info could not be fetched: %w", err)
 		}
-		b.log("Stream %s not found, about to add stream.", streamConfig.Name)
+		b.logger.Info("Stream not found, about to add stream.", slog.String("name", streamConfig.Name))
 
 		_, err = b.jetStreamContext.AddStream(streamConfig)
 		if err != nil {
 			return fmt.Errorf("streamInfo %s could not be added: %w", streamConfig.Name, err)
 		}
-		b.log("Added new NATS streamInfo %s", streamConfig.Name)
+		b.logger.Info("Added new NATS streamInfo", slog.String("name", streamConfig.Name))
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"reflect"
 	"testing"
@@ -72,7 +73,7 @@ func makeTestNATSBridge(t testing.TB, streamName string, currentSequenceNumber u
 func makeTestConnection(t *testing.T, streamName string, currentSequenceNumber uint64, wantData []byte, wantMessageID string, wantSubs []*Subscriber) *Connection {
 	return &Connection{
 		nats:        makeTestNATSBridge(t, streamName, currentSequenceNumber, wantData, wantMessageID),
-		log:         t.Logf,
+		logger:      slog.Default(),
 		subscribers: wantSubs,
 	}
 }
@@ -109,11 +110,11 @@ func deleteConsumer(c *Connection, b *natsBridge, streamName string) error {
 
 func makeIntegrationTestConn(t *testing.T) *Connection {
 	conn := &Connection{
-		log: t.Logf,
+		logger: slog.Default(),
 	}
 
 	nb := &natsBridge{
-		log: t.Logf,
+		logger: slog.Default(),
 	}
 
 	var err error

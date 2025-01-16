@@ -25,13 +25,6 @@ const (
 	SingleSubscriberStrictMessageOrder
 )
 
-// LogFunc is a generic logging function to incorporate the logging of the library into the application.
-// It can be set via the Option of a Connection using WithLogger(l LogFunc).
-type LogFunc func(format string, a ...interface{})
-
-// NoLogging is the default LogFunc. It logs nothing.
-var NoLogging = func(_ string, _ ...interface{}) {}
-
 // Config is a struct to hold the configuration of a NATS connection.
 type Config struct {
 	Password string
@@ -44,7 +37,7 @@ type Config struct {
 // It is also used to close the connection to the NATS server/ cluster.
 type Connection struct {
 	nats        bridge
-	log         LogFunc
+	logger      *slog.Logger
 	subscribers []*Subscriber
 }
 
@@ -79,12 +72,12 @@ type Option func(*Connection)
 // Connect returns Connection to a NATS server/ cluster and enables Publisher and Subscriber creation.
 func Connect(servers []string, options ...Option) (*Connection, error) {
 	conn := &Connection{
-		log: NoLogging,
+		logger: slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError})),
 	}
 
 	conn.applyOptions(options...)
 	var err error
-	if conn.nats, err = newNATSBridge(servers, conn.log); err != nil {
+	if conn.nats, err = newNATSBridge(servers, conn.logger); err != nil {
 		return nil, fmt.Errorf("NATS Connection could not be created: %w", err)
 	}
 	return conn, nil
@@ -138,16 +131,16 @@ func (c *Connection) Close() error {
 	if err := c.nats.Drain(); err != nil {
 		return fmt.Errorf("NATS Connection could not be closed: %w", err)
 	}
-	c.log("NATS Connection closed.")
+	c.logger.Info("NATS Connection closed.")
 	return nil
 }
 
-// WithLogger sets the logger using the generic LogFunc function.
+// WithLogger sets the logger
 // This option can be passed in the Connect function.
-// Without this option, the default LogFunc is a nop function.
-func WithLogger(log LogFunc) Option {
+// Without this option, the default logger is a slog instance with level ERROR
+func WithLogger(logger *slog.Logger) Option {
 	return func(c *Connection) {
-		c.log = log
+		c.logger = logger
 	}
 }
 
@@ -156,9 +149,9 @@ func WithLogger(log LogFunc) Option {
 // logger: an optional slog.Logger instance
 func MustConnectToNATS(config *Config, logger *slog.Logger) *Connection {
 	if logger == nil {
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 	}
-	natsConn, err := Connect(servers(config), WithLogger(logger.Info))
+	natsConn, err := Connect(servers(config), WithLogger(logger))
 	if err != nil {
 		panic("error while connecting to nats: " + err.Error())
 	}
