@@ -25,6 +25,7 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 		slog.String("subject", subject),
 		slog.String("storageType", defaultStorageType.String()),
 		slog.Int("Replicas", replicas),
+		slog.String("Servers", strings.Join(c.nats.Servers(), ",")),
 		slog.String("duplicationWindow", defaultDuplicationWindow.String()),
 		slog.Duration("maxAge", maxAge),
 	)
