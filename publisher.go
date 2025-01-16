@@ -15,10 +15,10 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 		return nil, err
 	}
 	if err := c.nats.EnsureStreamExists(&nats.StreamConfig{
-		Name:       args.StreamName,
-		Subjects:   []string{args.StreamName + ".>"},
-		Storage:    defaultStorageType,
-		Replicas:   len(c.nats.Servers()),
+		Name:     args.StreamName,
+		Subjects: []string{args.StreamName + ".>"},
+		Storage:  defaultStorageType,
+		// Replicas:   len(c.nats.Servers()),
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     time.Hour * 24 * 30,
 	}); err != nil {
