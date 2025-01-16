@@ -85,7 +85,7 @@ func (b *natsBridge) Subscribe(subject, consumerName string, mode SubscriptionMo
 }
 
 func (b *natsBridge) Servers() []string {
-	return b.connection.Servers()
+	return b.connection.Opts.Servers
 }
 
 func (b *natsBridge) Drain() error {

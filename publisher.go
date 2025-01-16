@@ -16,16 +16,14 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 	}
 	maxAge := time.Hour * 24 * 30
 	subject := args.StreamName + ".>"
-	replicas := len(c.nats.Servers())
-	// if replicas > 5 {
-	// 	replicas = 5
-	// }
+	servers := c.nats.Servers()
+	replicas := len(servers)
 	c.logger.Info("Ensure that stream exists",
 		slog.String("streamName", args.StreamName),
 		slog.String("subject", subject),
 		slog.String("storageType", defaultStorageType.String()),
 		slog.Int("Replicas", replicas),
-		slog.String("Servers", strings.Join(c.nats.Servers(), ",")),
+		slog.String("Servers", strings.Join(servers, ",")),
 		slog.String("duplicationWindow", defaultDuplicationWindow.String()),
 		slog.Duration("maxAge", maxAge),
 	)
