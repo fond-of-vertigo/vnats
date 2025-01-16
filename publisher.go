@@ -14,19 +14,20 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 	if err := validateStreamName(args.StreamName); err != nil {
 		return nil, err
 	}
+
 	maxAge := time.Hour * 24 * 30
 	subject := args.StreamName + ".>"
-	servers := c.nats.Servers()
-	replicas := len(servers)
+	replicas := len(c.nats.Servers())
+
 	c.logger.Info("Ensure that stream exists",
 		slog.String("streamName", args.StreamName),
 		slog.String("subject", subject),
 		slog.String("storageType", defaultStorageType.String()),
 		slog.Int("Replicas", replicas),
-		slog.String("Servers", strings.Join(servers, ",")),
 		slog.String("duplicationWindow", defaultDuplicationWindow.String()),
 		slog.Duration("maxAge", maxAge),
 	)
+
 	if err := c.nats.EnsureStreamExists(&nats.StreamConfig{
 		Name:       args.StreamName,
 		Subjects:   []string{subject},
