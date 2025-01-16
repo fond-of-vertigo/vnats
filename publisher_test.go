@@ -1,6 +1,7 @@
 package vnats
 
 import (
+	"log/slog"
 	"testing"
 )
 
@@ -91,7 +92,7 @@ func Test_publisher_Publish(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			pub := &Publisher{
 				conn:       makeTestConnection(t, tt.args.streamName, 1, tt.args.data, tt.args.msgID, nil),
-				log:        t.Logf,
+				logger:     slog.Default(),
 				streamName: tt.args.streamName,
 			}
 			err := pub.Publish(&Msg{
@@ -115,7 +116,7 @@ func Test_makePublisher(t *testing.T) {
 	natsTestBridge := makeTestNATSBridge(t, "PRODUCTS", 1, nil, "test")
 	connectionEmptySubscriptions := &Connection{
 		nats:        natsTestBridge,
-		log:         t.Logf,
+		logger:      slog.Default(),
 		subscribers: nil,
 	}
 

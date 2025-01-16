@@ -2,6 +2,7 @@ package vnats
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -26,7 +27,7 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 
 	p := &Publisher{
 		conn:       c,
-		log:        c.log,
+		logger:     c.logger,
 		streamName: args.StreamName,
 	}
 	return p, nil
@@ -36,7 +37,7 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 type Publisher struct {
 	conn       *Connection
 	streamName string
-	log        LogFunc
+	logger     *slog.Logger
 }
 
 // Publish publishes the message (data) to the given subject.

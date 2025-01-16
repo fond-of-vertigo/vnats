@@ -3,6 +3,7 @@ package vnats
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/nats-io/nats.go"
 )
@@ -17,7 +18,7 @@ func (c *Connection) NewSubscriber(args SubscriberArgs) (*Subscriber, error) {
 	sub := &Subscriber{
 		conn:         c,
 		subscription: subscription,
-		log:          c.log,
+		logger:       c.logger,
 		consumerName: args.ConsumerName,
 		quitSignal:   make(chan bool),
 	}
@@ -33,7 +34,7 @@ type MsgHandler func(msg Msg) error
 type Subscriber struct {
 	conn         *Connection
 	subscription *nats.Subscription
-	log          LogFunc
+	logger       *slog.Logger
 	consumerName string
 	handler      MsgHandler
 	quitSignal   chan bool
@@ -51,7 +52,7 @@ func (s *Subscriber) Start(handler MsgHandler) (err error) {
 		for {
 			select {
 			case <-s.quitSignal:
-				s.log("Received signal to quit subscription go-routine.")
+				s.logger.Info("Received signal to quit subscription go-routine.")
 				return
 			default:
 				s.processMessages()
@@ -69,7 +70,7 @@ func (s *Subscriber) Stop() error {
 	}
 
 	s.handler = nil
-	s.log("Unsubscribed consumer %s", s.consumerName)
+	s.logger.Info("Unsubscribed consumer", slog.String("name", s.consumerName))
 
 	return nil
 }
@@ -79,20 +80,20 @@ func (s *Subscriber) processMessages() {
 	if errors.Is(err, nats.ErrTimeout) {     // ErrTimeout is expected/ no new messages, so we don't log it
 		return
 	} else if err != nil {
-		s.log("Failed to receive msg: %v", err)
+		s.logger.Error("Failed to receive msg", slog.String("error", err.Error()))
 		return
 	}
 
 	msg := makeMsg(natsMsgs[0])
 	if err = s.handler(msg); err != nil {
-		s.log("Message handle error, will be NAKed: %v", err)
+		s.logger.Error("Message handle error, will be NAKed", slog.String("error", err.Error()))
 		if err := natsMsgs[0].NakWithDelay(defaultNakDelay); err != nil {
-			s.log("natsMsg.Nak() failed: %s", err)
+			s.logger.Error("natsMsg.Nak() failed", slog.String("error", err.Error()))
 		}
 		return
 	}
 
 	if err = natsMsgs[0].Ack(); err != nil {
-		s.log("natsMsg.Ack() failed: %v", err)
+		s.logger.Error("natsMsg.Ack() failed:", slog.String("error", err.Error()))
 	}
 }
