@@ -16,11 +16,15 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 	}
 	maxAge := time.Hour * 24 * 30
 	subject := args.StreamName + ".>"
-	c.logger.Info("Ensure that publisher exists",
+	replicas := len(c.nats.Servers())
+	// if replicas > 5 {
+	// 	replicas = 5
+	// }
+	c.logger.Info("Ensure that stream exists",
 		slog.String("streamName", args.StreamName),
 		slog.String("subject", subject),
 		slog.String("storageType", defaultStorageType.String()),
-		slog.Int("Replicas", len(c.nats.Servers())),
+		slog.Int("Replicas", replicas),
 		slog.String("duplicationWindow", defaultDuplicationWindow.String()),
 		slog.Duration("maxAge", maxAge),
 	)
@@ -28,7 +32,7 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 		Name:       args.StreamName,
 		Subjects:   []string{subject},
 		Storage:    defaultStorageType,
-		Replicas:   len(c.nats.Servers()),
+		Replicas:   replicas,
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     maxAge,
 	}); err != nil {
