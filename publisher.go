@@ -14,13 +14,23 @@ func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 	if err := validateStreamName(args.StreamName); err != nil {
 		return nil, err
 	}
+	maxAge := time.Hour * 24 * 30
+	subject := args.StreamName + ".>"
+	c.logger.Info("Ensure that publisher exists",
+		slog.String("streamName", args.StreamName),
+		slog.String("subject", subject),
+		slog.String("storageType", defaultStorageType.String()),
+		slog.Int("Replicas", len(c.nats.Servers())),
+		slog.String("duplicationWindow", defaultDuplicationWindow.String()),
+		slog.Duration("maxAge", maxAge),
+	)
 	if err := c.nats.EnsureStreamExists(&nats.StreamConfig{
-		Name:     args.StreamName,
-		Subjects: []string{args.StreamName + ".>"},
-		Storage:  defaultStorageType,
-		// Replicas:   len(c.nats.Servers()),
+		Name:       args.StreamName,
+		Subjects:   []string{subject},
+		Storage:    defaultStorageType,
+		Replicas:   len(c.nats.Servers()),
 		Duplicates: defaultDuplicationWindow,
-		MaxAge:     time.Hour * 24 * 30,
+		MaxAge:     maxAge,
 	}); err != nil {
 		return nil, fmt.Errorf("publisher could not be created: %w", err)
 	}
