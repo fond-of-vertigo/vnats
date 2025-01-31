@@ -84,7 +84,7 @@ func (c *Connection) validateReplicas(replicas int) int {
 	if replicas < 1 {
 		replicas = len(c.nats.Servers())
 	}
-	if replicas > 5 {
+	if replicas < 1 || replicas > 5 {
 		return 3
 	}
 	return replicas
