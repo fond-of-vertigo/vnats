@@ -59,3 +59,8 @@ func (m *Msg) toNATS() *nats.Msg {
 		Header:  nats.Header(m.Header),
 	}
 }
+
+// Get is a convenience method for the Header
+func (h Header) Get(key string) string {
+	return nats.Header(h).Get(key)
+}
