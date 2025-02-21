@@ -120,6 +120,7 @@ type SubscriberArgs struct {
 	Mode SubscriptionMode
 
 	// NakDelay is the time to wait before a message is redelivered after a NAK.
+	// If not set the defaultNakDelay is used (1 Minute).
 	NakDelay time.Duration
 }
 
