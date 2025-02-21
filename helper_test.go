@@ -14,7 +14,10 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-const integrationTestStreamName = "IntegrationTests"
+const (
+	integrationTestStreamName = "IntegrationTests"
+	testNakDelay              = time.Second * 3
+)
 
 type testBridge struct {
 	testing.TB
@@ -276,6 +279,7 @@ func createSubscriber(t *testing.T, conn *Connection, consumerName, subject stri
 		ConsumerName: consumerName,
 		Subject:      subject,
 		Mode:         mode,
+		NakDelay:     testNakDelay,
 	})
 	if err != nil {
 		t.Error(err)

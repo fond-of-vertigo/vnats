@@ -1,0 +1,10 @@
+services:
+  nats:
+    image: nats
+    ports:
+      - "8222:8222"
+      - "6222:6222"
+      - "4222:4222"
+    volumes:
+      - ./jetstream:/jetstream
+    command: ["-js", "-sd", "/", "-m", "8222"]
