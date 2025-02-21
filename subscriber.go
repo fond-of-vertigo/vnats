@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -15,12 +16,18 @@ func (c *Connection) NewSubscriber(args SubscriberArgs) (*Subscriber, error) {
 		return nil, fmt.Errorf("subscriber could not be created: %w", err)
 	}
 
+	// set the default NakDelay if not set
+	if args.NakDelay == 0 {
+		args.NakDelay = defaultNakDelay
+	}
+
 	sub := &Subscriber{
 		conn:         c,
 		subscription: subscription,
 		logger:       c.logger,
 		consumerName: args.ConsumerName,
 		quitSignal:   make(chan bool),
+		nakDelay:     args.NakDelay,
 	}
 
 	c.subscribers = append(c.subscribers, sub)
@@ -38,6 +45,7 @@ type Subscriber struct {
 	consumerName string
 	handler      MsgHandler
 	quitSignal   chan bool
+	nakDelay     time.Duration
 }
 
 // Start subscribes to the NATS consumer and starts a go-routine that handles pulled messages.
@@ -87,7 +95,7 @@ func (s *Subscriber) processMessages() {
 	msg := makeMsg(natsMsgs[0])
 	if err = s.handler(msg); err != nil {
 		s.logger.Error("Message handle error, will be NAKed", slog.String("error", err.Error()))
-		if err := natsMsgs[0].NakWithDelay(defaultNakDelay); err != nil {
+		if err := natsMsgs[0].NakWithDelay(s.nakDelay); err != nil {
 			s.logger.Error("natsMsg.Nak() failed", slog.String("error", err.Error()))
 		}
 		return

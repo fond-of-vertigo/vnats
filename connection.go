@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -117,6 +118,9 @@ type SubscriberArgs struct {
 	// Mode defines the constraints of the subscription. Default is MultipleSubscribersAllowed.
 	// See SubscriptionMode for details.
 	Mode SubscriptionMode
+
+	// NakDelay is the time to wait before a message is redelivered after a NAK.
+	NakDelay time.Duration
 }
 
 // Close closes the NATS Connection and drains all subscriptions.
