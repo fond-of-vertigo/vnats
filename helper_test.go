@@ -218,7 +218,7 @@ func publishTestMessageStructMessages(t *testing.T, conn *Connection, subject st
 	}
 }
 
-func retrieveStringMessages(sub *Subscriber, expectedMessages []string) ([]string, error) {
+func retrieveStringMessages(sub *Subscriber, expectedMessages []string) []string {
 	receivedMessages := []string{}
 	done := make(chan bool)
 
@@ -233,10 +233,10 @@ func retrieveStringMessages(sub *Subscriber, expectedMessages []string) ([]strin
 
 	waitFinishMsgHandler(sub, done)
 
-	return receivedMessages, nil
+	return receivedMessages
 }
 
-func retrieveTestMessageStructMessages(sub *Subscriber, expectedMessages []string) ([]string, error) {
+func retrieveTestMessageStructMessages(sub *Subscriber, expectedMessages []string) []string {
 	var receivedMessages []string
 	done := make(chan bool)
 
@@ -255,7 +255,7 @@ func retrieveTestMessageStructMessages(sub *Subscriber, expectedMessages []strin
 
 	waitFinishMsgHandler(sub, done)
 
-	return receivedMessages, nil
+	return receivedMessages
 }
 
 func waitFinishMsgHandler(sub *Subscriber, done chan bool) {

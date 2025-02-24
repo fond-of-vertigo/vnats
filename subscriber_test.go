@@ -114,10 +114,7 @@ func subscriberStringTest(t *testing.T, conn *Connection, sub *Subscriber, confi
 	subject := integrationTestStreamName + ".PubSubTest.string"
 	publishStringMessages(t, conn, subject, config.publishMessages)
 
-	receivedMessages, err := retrieveStringMessages(sub, config.expectedMessages)
-	if err != nil {
-		t.Error(err)
-	}
+	receivedMessages := retrieveStringMessages(sub, config.expectedMessages)
 
 	switch config.mode {
 	case MultipleSubscribersAllowed:
@@ -145,10 +142,7 @@ func subscriberStructTest(t *testing.T, conn *Connection, sub *Subscriber, confi
 	subject := integrationTestStreamName + ".PubSubTest.string"
 	publishTestMessageStructMessages(t, conn, subject, config.publishMessages)
 
-	receivedMessages, err := retrieveTestMessageStructMessages(sub, config.expectedMessages)
-	if err != nil {
-		t.Error(err)
-	}
+	receivedMessages := retrieveTestMessageStructMessages(sub, config.expectedMessages)
 
 	switch config.mode {
 	case MultipleSubscribersAllowed:
@@ -387,10 +381,7 @@ func TestSubscriberClose(t *testing.T) {
 			publishStringMessages(t, conn, subject, tt.publishMessages)
 
 			// Get messages
-			messages, err := retrieveStringMessages(sub, tt.expectedMessages)
-			if err != nil {
-				t.Error(err)
-			}
+			messages := retrieveStringMessages(sub, tt.expectedMessages)
 
 			if !reflect.DeepEqual(messages, tt.expectedMessages) {
 				t.Errorf("Got messages %v, expected %v", messages, tt.expectedMessages)
@@ -399,7 +390,7 @@ func TestSubscriberClose(t *testing.T) {
 			// Stop subscriber
 			sub.Stop()
 
-			messages, _ = retrieveStringMessages(sub, []string{})
+			messages = retrieveStringMessages(sub, []string{})
 			if len(messages) > 0 {
 				t.Fatalf("Subscriber should not receive any messages after stopping, but received: %v", messages)
 			}
