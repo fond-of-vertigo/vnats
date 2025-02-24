@@ -380,11 +380,11 @@ func makeHandlerSubscriber(t *testing.T, alwaysFail bool, s *subscriptionState, 
 	handler := func(_ Msg) error {
 		if alwaysFail {
 			s.FailedMsgs++
-			t.Logf("Subscriber %v: Failed msg handeling, failesp: %v", idx, s.FailedMsgs)
-			return fmt.Errorf("msg handleing failed")
+			t.Logf("Subscriber %v: Failed msg handling, failesp: %v", idx, s.FailedMsgs)
+			return fmt.Errorf("msg handling failed")
 		}
 		s.SuccessfulMsgs++
-		t.Logf("Subscriber %v: Successful msg handeling, successes: %v", idx, s.SuccessfulMsgs)
+		t.Logf("Subscriber %v: Successful msg handling, successes: %v", idx, s.SuccessfulMsgs)
 		return nil
 	}
 	return handler
