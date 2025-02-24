@@ -19,3 +19,6 @@
 
 # jetstream
 jetstream
+
+.env
+!.env.example
