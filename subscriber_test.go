@@ -11,6 +11,7 @@ type subscribeStringsConfig struct {
 	name             string
 	publishMessages  []string
 	expectedMessages []string
+	gotMessages      []string
 	mode             SubscriptionMode
 	wantErr          bool
 }
@@ -93,7 +94,7 @@ func TestSubscriber_Subscribe_Strings(t *testing.T) {
 					ConsumerName: "TestConsumer",
 					Subject:      subject,
 					Mode:         tt.mode,
-				})
+				}, nopMsgHandler)
 				if err != nil {
 					t.Error(err)
 				}
@@ -172,34 +173,6 @@ func subscriberStructTest(t *testing.T, conn *Connection, sub *Subscriber, confi
 	return nil
 }
 
-func TestSubscriber_CallTwice(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-	subject := integrationTestStreamName + ".subscribeTwice"
-	conn := makeIntegrationTestConn(t)
-	publishStringMessages(t, conn, subject, []string{})
-	sub, err := conn.NewSubscriber(SubscriberArgs{
-		ConsumerName: "TestConsumer",
-		Subject:      subject,
-	})
-	if err != nil {
-		t.Error(err)
-	}
-	handler := func(_ Msg) error { return nil }
-
-	if err := sub.Start(handler); err != nil {
-		t.Error(err)
-	}
-	err = sub.Start(handler)
-	if err.Error() != "handler is already set, don't call Start() multiple times" {
-		t.Errorf("Error expeceted, but not received! Err: %v", err)
-	}
-	if err := conn.Close(); err != nil {
-		t.Error(err)
-	}
-}
-
 func TestSubscriberAlwaysFails(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -234,10 +207,8 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			conn := makeIntegrationTestConn(t)
 			publishStringMessages(t, conn, subject, []string{"hello", "world"})
-			sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, test.mode)
 
 			callCountHello, callCountWorld := 0, 0
-
 			handler := func(msg Msg) error {
 				switch string(msg.Data) {
 				case "hello":
@@ -248,9 +219,9 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 				return fmt.Errorf("REST-Endpoint is down, retry later")
 			}
 
-			if err := sub.Start(handler); err != nil {
-				t.Error(err)
-			}
+			sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, test.mode, handler)
+
+			sub.Start()
 
 			time.Sleep(test.waitUntilCheckCallCount)
 
@@ -348,16 +319,13 @@ func TestSubscriberMultiple(t *testing.T) {
 			conn := makeIntegrationTestConn(t)
 
 			for idx, subConfig := range tt.args.subscribers {
-				sub := createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, subConfig.mode)
-
-				subState := subscriptionState{subscriber: sub}
+				subState := subscriptionState{}
 				s = append(s, &subState)
 
 				handler := makeHandlerSubscriber(t, subConfig.alwaysFail, &subState, idx)
 
-				if err := s[idx].subscriber.Start(handler); err != nil && !tt.wantErr {
-					t.Error(err)
-				}
+				s[idx].subscriber = createSubscriber(t, conn, "TestSubscriberAlwaysFails", subject, subConfig.mode, handler)
+				s[idx].subscriber.Start()
 			}
 
 			publishManyMessages(t, conn, subject, tt.args.publishMessages)

@@ -48,7 +48,7 @@ func TestConnection_NewSubscriber(t *testing.T) {
 			ConsumerName: test.consumerName,
 			Subject:      test.subject,
 			Mode:         test.mode,
-		})
+		}, nopMsgHandler)
 		if err != nil {
 			t.Errorf("Subscriber could not be created: %v", err)
 		}

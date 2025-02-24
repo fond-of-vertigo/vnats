@@ -4,13 +4,23 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"github.com/nats-io/nats.go"
 )
 
+// MustMakeSubscriber creates a new Subscriber that subscribes to a NATS stream.
+func (c *Connection) MustMakeSubscriber(args SubscriberArgs, handler MsgHandler) *Subscriber {
+	sub, err := c.NewSubscriber(args, handler)
+	if err != nil {
+		panic(err)
+	}
+	return sub
+}
+
 // NewSubscriber creates a new Subscriber that subscribes to a NATS stream.
-func (c *Connection) NewSubscriber(args SubscriberArgs) (*Subscriber, error) {
+func (c *Connection) NewSubscriber(args SubscriberArgs, handler MsgHandler) (*Subscriber, error) {
 	subscription, err := c.nats.Subscribe(args.Subject, args.ConsumerName, args.Mode)
 	if err != nil {
 		return nil, fmt.Errorf("subscriber could not be created: %w", err)
@@ -28,6 +38,7 @@ func (c *Connection) NewSubscriber(args SubscriberArgs) (*Subscriber, error) {
 		consumerName: args.ConsumerName,
 		quitSignal:   make(chan bool),
 		nakDelay:     args.NakDelay,
+		handler:      handler,
 	}
 
 	c.subscribers = append(c.subscribers, sub)
@@ -46,20 +57,21 @@ type Subscriber struct {
 	handler      MsgHandler
 	quitSignal   chan bool
 	nakDelay     time.Duration
+	started      atomic.Bool
 }
 
 // Start subscribes to the NATS consumer and starts a go-routine that handles pulled messages.
-func (s *Subscriber) Start(handler MsgHandler) (err error) {
-	if s.handler != nil {
-		return fmt.Errorf("handler is already set, don't call Start() multiple times")
+func (s *Subscriber) Start() {
+	if !s.started.CompareAndSwap(false, true) {
+		s.logger.Error("Subscriber already started, ignoring method call", slog.String("name", s.consumerName))
+		return
 	}
-
-	s.handler = handler
 
 	go func() {
 		for {
 			select {
 			case <-s.quitSignal:
+				s.started.Store(false)
 				s.logger.Info("Received signal to quit subscription go-routine.")
 				return
 			default:
@@ -67,20 +79,17 @@ func (s *Subscriber) Start(handler MsgHandler) (err error) {
 			}
 		}
 	}()
-
-	return nil
 }
 
 // Stop unsubscribes the consumer from the NATS stream.
-func (s *Subscriber) Stop() error {
+func (s *Subscriber) Stop() {
 	if err := s.subscription.Unsubscribe(); err != nil {
-		return err
+		s.logger.Error("failed to unsubscribe consumer", slog.String("name", s.consumerName), slog.String("error", err.Error()))
+		return
 	}
 
-	s.handler = nil
+	s.started.Store(false)
 	s.logger.Info("Unsubscribed consumer", slog.String("name", s.consumerName))
-
-	return nil
 }
 
 func (s *Subscriber) processMessages() {

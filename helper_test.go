@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	defaultServerURL          = "nats://127.0.0.1:4222"
 	integrationTestStreamName = "IntegrationTests"
 	testNakDelay              = time.Second * 3
 )
@@ -100,9 +101,7 @@ func deleteConsumer(c *Connection, b *natsBridge, streamName string) error {
 	for _, sub := range c.subscribers {
 		consumerName := sub.consumerName
 
-		if err := sub.Stop(); err != nil {
-			return err
-		}
+		sub.Stop()
 
 		if err := b.jetStreamContext.DeleteConsumer(streamName, consumerName); err != nil {
 			return err
@@ -123,7 +122,7 @@ func makeIntegrationTestConn(t *testing.T) *Connection {
 	var err error
 	url := os.Getenv("NATS_SERVER_URL")
 	if url == "" {
-		t.Error("Env-Var `NATS_SERVER_URL` is empty!")
+		url = defaultServerURL
 	}
 	nb.connection, err = nats.Connect(url)
 	if err != nil {
@@ -223,7 +222,7 @@ func retrieveStringMessages(sub *Subscriber, expectedMessages []string) ([]strin
 	var receivedMessages []string
 	done := make(chan bool)
 
-	handler := func(msg Msg) error {
+	sub.handler = func(msg Msg) error {
 		receivedMessages = append(receivedMessages, string(msg.Data))
 
 		if len(receivedMessages) == len(expectedMessages) {
@@ -232,7 +231,7 @@ func retrieveStringMessages(sub *Subscriber, expectedMessages []string) ([]strin
 		return nil
 	}
 
-	if err := waitFinishMsgHandler(sub, handler, done); err != nil {
+	if err := waitFinishMsgHandler(sub, done); err != nil {
 		return nil, err
 	}
 	return receivedMessages, nil
@@ -242,7 +241,7 @@ func retrieveTestMessageStructMessages(sub *Subscriber, expectedMessages []strin
 	var receivedMessages []string
 	done := make(chan bool)
 
-	handler := func(msg Msg) error {
+	sub.handler = func(msg Msg) error {
 		var data testMessagePayload
 		if err := json.Unmarshal(msg.Data, &data); err != nil {
 			return err
@@ -255,16 +254,14 @@ func retrieveTestMessageStructMessages(sub *Subscriber, expectedMessages []strin
 		return nil
 	}
 
-	if err := waitFinishMsgHandler(sub, handler, done); err != nil {
+	if err := waitFinishMsgHandler(sub, done); err != nil {
 		return nil, err
 	}
 	return receivedMessages, nil
 }
 
-func waitFinishMsgHandler(sub *Subscriber, handler MsgHandler, done chan bool) error {
-	if err := sub.Start(handler); err != nil {
-		return err
-	}
+func waitFinishMsgHandler(sub *Subscriber, done chan bool) error {
+	sub.Start()
 
 	select {
 	case <-done:
@@ -274,15 +271,19 @@ func waitFinishMsgHandler(sub *Subscriber, handler MsgHandler, done chan bool) e
 	}
 }
 
-func createSubscriber(t *testing.T, conn *Connection, consumerName, subject string, mode SubscriptionMode) *Subscriber {
+func createSubscriber(t *testing.T, conn *Connection, consumerName, subject string, mode SubscriptionMode, handler MsgHandler) *Subscriber {
 	sub, err := conn.NewSubscriber(SubscriberArgs{
 		ConsumerName: consumerName,
 		Subject:      subject,
 		Mode:         mode,
 		NakDelay:     testNakDelay,
-	})
+	}, handler)
 	if err != nil {
 		t.Error(err)
 	}
 	return sub
+}
+
+func nopMsgHandler(msg Msg) error {
+	return nil
 }
