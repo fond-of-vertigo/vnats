@@ -128,13 +128,6 @@ type SubscriberArgs struct {
 
 // Close closes the NATS Connection and drains all subscriptions.
 func (c *Connection) Close() error {
-	for _, sub := range c.subscribers {
-		if err := sub.subscription.Drain(); err != nil {
-			return err
-		}
-		sub.quitSignal <- true
-		close(sub.quitSignal)
-	}
 	if err := c.nats.Drain(); err != nil {
 		return fmt.Errorf("NATS Connection could not be closed: %w", err)
 	}

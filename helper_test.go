@@ -219,7 +219,7 @@ func publishTestMessageStructMessages(t *testing.T, conn *Connection, subject st
 }
 
 func retrieveStringMessages(sub *Subscriber, expectedMessages []string) ([]string, error) {
-	var receivedMessages []string
+	receivedMessages := []string{}
 	done := make(chan bool)
 
 	sub.handler = func(msg Msg) error {
@@ -231,9 +231,8 @@ func retrieveStringMessages(sub *Subscriber, expectedMessages []string) ([]strin
 		return nil
 	}
 
-	if err := waitFinishMsgHandler(sub, done); err != nil {
-		return nil, err
-	}
+	waitFinishMsgHandler(sub, done)
+
 	return receivedMessages, nil
 }
 
@@ -254,20 +253,19 @@ func retrieveTestMessageStructMessages(sub *Subscriber, expectedMessages []strin
 		return nil
 	}
 
-	if err := waitFinishMsgHandler(sub, done); err != nil {
-		return nil, err
-	}
+	waitFinishMsgHandler(sub, done)
+
 	return receivedMessages, nil
 }
 
-func waitFinishMsgHandler(sub *Subscriber, done chan bool) error {
+func waitFinishMsgHandler(sub *Subscriber, done chan bool) {
 	sub.Start()
 
 	select {
 	case <-done:
-		return nil
+		return
 	case <-time.After(time.Millisecond * 200):
-		return nil
+		return
 	}
 }
 
@@ -284,6 +282,6 @@ func createSubscriber(t *testing.T, conn *Connection, consumerName, subject stri
 	return sub
 }
 
-func nopMsgHandler(msg Msg) error {
+func nopMsgHandler(_ Msg) error {
 	return nil
 }

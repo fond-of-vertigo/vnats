@@ -11,7 +11,6 @@ type subscribeStringsConfig struct {
 	name             string
 	publishMessages  []string
 	expectedMessages []string
-	gotMessages      []string
 	mode             SubscriptionMode
 	wantErr          bool
 }
@@ -339,6 +338,74 @@ func TestSubscriberMultiple(t *testing.T) {
 				if subState.SuccessfulMsgs < tt.args.subscribers[idx].minSuccessfulMsgs {
 					t.Errorf("Subscriber %d: Too less messages were successful %d < %d", idx, subState.SuccessfulMsgs, tt.args.subscribers[idx].minSuccessfulMsgs)
 				}
+			}
+		})
+	}
+}
+
+func TestSubscriberClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	tests := []struct {
+		name             string
+		mode             SubscriptionMode
+		publishMessages  []string
+		expectedMessages []string
+	}{
+		{
+			name:             "Close subscriber after receiving messages",
+			mode:             MultipleSubscribersAllowed,
+			publishMessages:  []string{"msg1", "msg2", "msg3"},
+			expectedMessages: []string{"msg1", "msg2", "msg3"},
+		},
+		{
+			name:             "Close subscriber with no messages",
+			mode:             SingleSubscriberStrictMessageOrder,
+			publishMessages:  []string{},
+			expectedMessages: []string{},
+		},
+	}
+
+	subject := integrationTestStreamName + ".subscriberClose"
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn := makeIntegrationTestConn(t)
+
+			sub, err := conn.NewSubscriber(SubscriberArgs{
+				ConsumerName: "TestConsumer",
+				Subject:      subject,
+				Mode:         tt.mode,
+			}, nopMsgHandler)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Publish test messages
+			publishStringMessages(t, conn, subject, tt.publishMessages)
+
+			// Get messages
+			messages, err := retrieveStringMessages(sub, tt.expectedMessages)
+			if err != nil {
+				t.Error(err)
+			}
+
+			if !reflect.DeepEqual(messages, tt.expectedMessages) {
+				t.Errorf("Got messages %v, expected %v", messages, tt.expectedMessages)
+			}
+
+			// Stop subscriber
+			sub.Stop()
+
+			messages, _ = retrieveStringMessages(sub, []string{})
+			if len(messages) > 0 {
+				t.Fatalf("Subscriber should not receive any messages after stopping, but received: %v", messages)
+			}
+
+			if err := conn.Close(); err != nil {
+				t.Error(err)
 			}
 		})
 	}

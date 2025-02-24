@@ -36,7 +36,6 @@ func (c *Connection) NewSubscriber(args SubscriberArgs, handler MsgHandler) (*Su
 		subscription: subscription,
 		logger:       c.logger,
 		consumerName: args.ConsumerName,
-		quitSignal:   make(chan bool),
 		nakDelay:     args.NakDelay,
 		handler:      handler,
 	}
@@ -55,50 +54,49 @@ type Subscriber struct {
 	logger       *slog.Logger
 	consumerName string
 	handler      MsgHandler
-	quitSignal   chan bool
 	nakDelay     time.Duration
 	started      atomic.Bool
 }
 
 // Start subscribes to the NATS consumer and starts a go-routine that handles pulled messages.
+// Important: Start should be called only once and can't be called after Stop.
 func (s *Subscriber) Start() {
 	if !s.started.CompareAndSwap(false, true) {
-		s.logger.Error("Subscriber already started, ignoring method call", slog.String("name", s.consumerName))
+		s.logger.Warn("Subscriber already started, ignoring method call", slog.String("name", s.consumerName))
 		return
 	}
 
 	go func() {
 		for {
-			select {
-			case <-s.quitSignal:
-				s.started.Store(false)
-				s.logger.Info("Received signal to quit subscription go-routine.")
+			err := s.processMessages()
+			if err != nil {
+				s.logger.Info("stopping nats message handler", slog.String("name", s.consumerName), slog.String("error", err.Error()))
 				return
-			default:
-				s.processMessages()
 			}
 		}
 	}()
 }
 
 // Stop unsubscribes the consumer from the NATS stream.
+// Important: After calling Stop the subscription is closed and can't be started again.
 func (s *Subscriber) Stop() {
 	if err := s.subscription.Unsubscribe(); err != nil {
 		s.logger.Error("failed to unsubscribe consumer", slog.String("name", s.consumerName), slog.String("error", err.Error()))
 		return
 	}
 
-	s.started.Store(false)
 	s.logger.Info("Unsubscribed consumer", slog.String("name", s.consumerName))
 }
 
-func (s *Subscriber) processMessages() {
+func (s *Subscriber) processMessages() error {
 	natsMsgs, err := s.subscription.Fetch(1) // Fetch only one msg at once to keep the order
 	if errors.Is(err, nats.ErrTimeout) {     // ErrTimeout is expected/ no new messages, so we don't log it
-		return
+		return nil
+	} else if errors.Is(err, nats.ErrBadSubscription) { // Subscription was closed
+		return err
 	} else if err != nil {
 		s.logger.Error("Failed to receive msg", slog.String("error", err.Error()))
-		return
+		return nil
 	}
 
 	msg := makeMsg(natsMsgs[0])
@@ -107,10 +105,12 @@ func (s *Subscriber) processMessages() {
 		if err := natsMsgs[0].NakWithDelay(s.nakDelay); err != nil {
 			s.logger.Error("natsMsg.Nak() failed", slog.String("error", err.Error()))
 		}
-		return
+		return nil
 	}
 
 	if err = natsMsgs[0].Ack(); err != nil {
 		s.logger.Error("natsMsg.Ack() failed:", slog.String("error", err.Error()))
 	}
+
+	return nil
 }
