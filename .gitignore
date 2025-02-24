@@ -16,3 +16,9 @@
 
 # Intellij
 .idea
+
+# jetstream
+jetstream
+
+.env
+!.env.example

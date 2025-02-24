@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -96,6 +97,8 @@ type PublisherArgs struct {
 	// StreamName is the name of the stream like "PRODUCTS" or "ORDERS".
 	// If it does not exist, the stream will be created.
 	StreamName string
+	// Replicas is the number of replicas for the stream. default is 3
+	Replicas int
 }
 
 // SubscriberArgs contains the arguments for creating a new Subscriber.
@@ -117,6 +120,10 @@ type SubscriberArgs struct {
 	// Mode defines the constraints of the subscription. Default is MultipleSubscribersAllowed.
 	// See SubscriptionMode for details.
 	Mode SubscriptionMode
+
+	// NakDelay is the time to wait before a message is redelivered after a NAK.
+	// If not set the defaultNakDelay is used (1 Minute).
+	NakDelay time.Duration
 }
 
 // Close closes the NATS Connection and drains all subscriptions.

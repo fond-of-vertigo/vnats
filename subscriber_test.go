@@ -218,7 +218,7 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 			minCallFirstMsg:         2,
 			minCallSecondMsg:        0,
 			maxCallSecondMsg:        0,
-			waitUntilCheckCallCount: defaultNakDelay * 2,
+			waitUntilCheckCallCount: testNakDelay * 2,
 		},
 		{
 			name:                    "MultipleSubscribersAllowed always fails, tries second message",
@@ -226,7 +226,7 @@ func TestSubscriberAlwaysFails(t *testing.T) {
 			minCallFirstMsg:         2,
 			minCallSecondMsg:        2,
 			maxCallSecondMsg:        3,
-			waitUntilCheckCallCount: defaultNakDelay * 2,
+			waitUntilCheckCallCount: testNakDelay * 2,
 		},
 	}
 	subject := integrationTestStreamName + ".subscriberAlwaysFails"
@@ -309,7 +309,7 @@ func TestSubscriberMultiple(t *testing.T) {
 					},
 				},
 				publishMessages:         6,
-				waitUntilCheckCallCount: defaultNakDelay * 6,
+				waitUntilCheckCallCount: testNakDelay * 6,
 			},
 			wantErr: false,
 		},
@@ -331,7 +331,7 @@ func TestSubscriberMultiple(t *testing.T) {
 					},
 				},
 				publishMessages:         6,
-				waitUntilCheckCallCount: defaultNakDelay,
+				waitUntilCheckCallCount: testNakDelay,
 			},
 			wantErr: true,
 		},
@@ -380,11 +380,11 @@ func makeHandlerSubscriber(t *testing.T, alwaysFail bool, s *subscriptionState, 
 	handler := func(_ Msg) error {
 		if alwaysFail {
 			s.FailedMsgs++
-			t.Logf("Subscriber %v: Failed msg handeling, failesp: %v", idx, s.FailedMsgs)
-			return fmt.Errorf("msg handleing failed")
+			t.Logf("Subscriber %v: Failed msg handling, failesp: %v", idx, s.FailedMsgs)
+			return fmt.Errorf("msg handling failed")
 		}
 		s.SuccessfulMsgs++
-		t.Logf("Subscriber %v: Successful msg handeling, successes: %v", idx, s.SuccessfulMsgs)
+		t.Logf("Subscriber %v: Successful msg handling, successes: %v", idx, s.SuccessfulMsgs)
 		return nil
 	}
 	return handler
