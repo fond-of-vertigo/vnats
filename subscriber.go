@@ -4,13 +4,23 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"github.com/nats-io/nats.go"
 )
 
+// MustMakeSubscriber creates a new Subscriber that subscribes to a NATS stream.
+func (c *Connection) MustMakeSubscriber(args SubscriberArgs, handler MsgHandler) *Subscriber {
+	sub, err := c.NewSubscriber(args, handler)
+	if err != nil {
+		panic(err)
+	}
+	return sub
+}
+
 // NewSubscriber creates a new Subscriber that subscribes to a NATS stream.
-func (c *Connection) NewSubscriber(args SubscriberArgs) (*Subscriber, error) {
+func (c *Connection) NewSubscriber(args SubscriberArgs, handler MsgHandler) (*Subscriber, error) {
 	subscription, err := c.nats.Subscribe(args.Subject, args.ConsumerName, args.Mode)
 	if err != nil {
 		return nil, fmt.Errorf("subscriber could not be created: %w", err)
@@ -26,8 +36,8 @@ func (c *Connection) NewSubscriber(args SubscriberArgs) (*Subscriber, error) {
 		subscription: subscription,
 		logger:       c.logger,
 		consumerName: args.ConsumerName,
-		quitSignal:   make(chan bool),
 		nakDelay:     args.NakDelay,
+		handler:      handler,
 	}
 
 	c.subscribers = append(c.subscribers, sub)
@@ -44,52 +54,50 @@ type Subscriber struct {
 	logger       *slog.Logger
 	consumerName string
 	handler      MsgHandler
-	quitSignal   chan bool
 	nakDelay     time.Duration
+	started      atomic.Bool
 }
 
 // Start subscribes to the NATS consumer and starts a go-routine that handles pulled messages.
-func (s *Subscriber) Start(handler MsgHandler) (err error) {
-	if s.handler != nil {
-		return fmt.Errorf("handler is already set, don't call Start() multiple times")
+// Important: Start should be called only once and can't be called after Stop.
+func (s *Subscriber) Start() {
+	if !s.started.CompareAndSwap(false, true) {
+		s.logger.Warn("Subscriber already started, ignoring method call", slog.String("name", s.consumerName))
+		return
 	}
-
-	s.handler = handler
 
 	go func() {
 		for {
-			select {
-			case <-s.quitSignal:
-				s.logger.Info("Received signal to quit subscription go-routine.")
+			err := s.processMessages()
+			if err != nil {
+				s.logger.Info("stopping nats message handler", slog.String("name", s.consumerName), slog.String("error", err.Error()))
 				return
-			default:
-				s.processMessages()
 			}
 		}
 	}()
-
-	return nil
 }
 
 // Stop unsubscribes the consumer from the NATS stream.
-func (s *Subscriber) Stop() error {
+// Important: After calling Stop the subscription is closed and can't be started again.
+func (s *Subscriber) Stop() {
 	if err := s.subscription.Unsubscribe(); err != nil {
-		return err
+		s.logger.Error("failed to unsubscribe consumer", slog.String("name", s.consumerName), slog.String("error", err.Error()))
+		return
 	}
 
-	s.handler = nil
 	s.logger.Info("Unsubscribed consumer", slog.String("name", s.consumerName))
-
-	return nil
 }
 
-func (s *Subscriber) processMessages() {
+func (s *Subscriber) processMessages() error {
 	natsMsgs, err := s.subscription.Fetch(1) // Fetch only one msg at once to keep the order
-	if errors.Is(err, nats.ErrTimeout) {     // ErrTimeout is expected/ no new messages, so we don't log it
-		return
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, nats.ErrTimeout) { // ErrTimeout is expected/ no new messages, so we don't log it
+			return nil
+		} else if errors.Is(err, nats.ErrBadSubscription) { // Subscription was closed
+			return err
+		}
 		s.logger.Error("Failed to receive msg", slog.String("error", err.Error()))
-		return
+		return nil
 	}
 
 	msg := makeMsg(natsMsgs[0])
@@ -98,10 +106,12 @@ func (s *Subscriber) processMessages() {
 		if err := natsMsgs[0].NakWithDelay(s.nakDelay); err != nil {
 			s.logger.Error("natsMsg.Nak() failed", slog.String("error", err.Error()))
 		}
-		return
+		return nil
 	}
 
 	if err = natsMsgs[0].Ack(); err != nil {
 		s.logger.Error("natsMsg.Ack() failed:", slog.String("error", err.Error()))
 	}
+
+	return nil
 }
