@@ -90,11 +90,12 @@ func (s *Subscriber) Stop() {
 
 func (s *Subscriber) processMessages() error {
 	natsMsgs, err := s.subscription.Fetch(1) // Fetch only one msg at once to keep the order
-	if errors.Is(err, nats.ErrTimeout) {     // ErrTimeout is expected/ no new messages, so we don't log it
-		return nil
-	} else if errors.Is(err, nats.ErrBadSubscription) { // Subscription was closed
-		return err
-	} else if err != nil {
+	if err != nil {
+		if errors.Is(err, nats.ErrTimeout) { // ErrTimeout is expected/ no new messages, so we don't log it
+			return nil
+		} else if errors.Is(err, nats.ErrBadSubscription) { // Subscription was closed
+			return err
+		}
 		s.logger.Error("Failed to receive msg", slog.String("error", err.Error()))
 		return nil
 	}
