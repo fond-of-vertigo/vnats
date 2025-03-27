@@ -1,46 +1,47 @@
-output:
-  sort-results: true
-
+version: "2"
 linters:
   enable:
     - asciicheck
+    - copyloopvar
     - dogsled
     - durationcheck
-    - errcheck
-    - copyloopvar
-    - gci
-    - gofumpt
-    - goimports
     - gosec
-    - gosimple
-    - govet
-    - ineffassign
     - misspell
     - nakedret
     - nilerr
     - prealloc
     - predeclared
     - revive
-    - revive
     - staticcheck
-    - stylecheck
-    - typecheck
     - unconvert
     - unparam
-    - unused
-
+  exclusions:
+    generated: lax
+    rules:
+      - path: (.+)\.go$
+        text: should have a package comment
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
   max-same-issues: 0
-  exclude-use-default: false
-  exclude:
-    - should have a package comment
-
-linters-settings:
-  gofumpt:
-    extra-rules: true
-
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(github.com/fond-of-vertigo/vnats)
+formatters:
+  enable:
+    - gci
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/fond-of-vertigo/vnats)
+    gofumpt:
+      extra-rules: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

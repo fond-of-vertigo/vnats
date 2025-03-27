@@ -9,6 +9,27 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+// PublisherArgs contains the arguments for creating a new Publisher.
+// By using a struct we are open for adding new arguments in the future
+// and the caller can omit arguments where the default value is OK.
+type PublisherArgs struct {
+	// StreamName is the name of the stream like "PRODUCTS" or "ORDERS".
+	// If it does not exist, the stream will be created.
+	StreamName string
+	// Replicas is the number of replicas for the stream.
+	// If not set, the number of replicas is set to the number of NATS servers.
+	Replicas int
+}
+
+// MustMakePublisher creates a new Publisher that publishes to a NATS stream.
+func (c *Connection) MustMakePublisher(args PublisherArgs) *Publisher {
+	pub, err := c.NewPublisher(args)
+	if err != nil {
+		panic(err)
+	}
+	return pub
+}
+
 // NewPublisher creates a new Publisher that publishes to a NATS stream.
 func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
 	if err := validateStreamName(args.StreamName); err != nil {

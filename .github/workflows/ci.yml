@@ -20,9 +20,7 @@ jobs:
       - name: Check out Go client code
         uses: actions/checkout@v3
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          skip-pkg-cache: true
+        uses: golangci/golangci-lint-action@v7
       - name: Install NATS server
         run: |
           curl -sL https://github.com/nats-io/nats-server/releases/download/v2.9.15/nats-server-v2.9.15-linux-amd64.tar.gz | tar xzvf -
