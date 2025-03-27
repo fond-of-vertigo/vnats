@@ -10,6 +10,31 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+// SubscriberArgs contains the arguments for creating a new Subscriber.
+// By using a struct we are open for adding new arguments in the future
+// and the caller can omit arguments where the default value is OK.
+type SubscriberArgs struct {
+	// ConsumerName contains the name of the consumer. By default, this should be the
+	// name of the service.
+	ConsumerName string
+
+	// Subject defines which subjects of the stream should be subscribed.
+	// Examples:
+	//  "ORDERS.new" -> subscribe subject "new" of stream "ORDERS"
+	//  "ORDERS.>"   -> subscribe all subjects in any level of stream "ORDERS".
+	//  "ORDERS.*"   -> subscribe all direct subjects of stream "ORDERS", like "ORDERS.new", "ORDERS.processed",
+	//                  but not "ORDERS.new.error".
+	Subject string
+
+	// Mode defines the constraints of the subscription. Default is MultipleSubscribersAllowed.
+	// See SubscriptionMode for details.
+	Mode SubscriptionMode
+
+	// NakDelay is the time to wait before a message is redelivered after a NAK.
+	// If not set the defaultNakDelay is used (1 Minute).
+	NakDelay time.Duration
+}
+
 // MustMakeSubscriber creates a new Subscriber that subscribes to a NATS stream.
 func (c *Connection) MustMakeSubscriber(args SubscriberArgs, handler MsgHandler) *Subscriber {
 	sub, err := c.NewSubscriber(args, handler)
