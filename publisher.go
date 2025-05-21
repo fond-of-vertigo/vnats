@@ -3,23 +3,12 @@ package vnats
 import (
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
 )
-
-// PublisherArgs contains the arguments for creating a new Publisher.
-// By using a struct we are open for adding new arguments in the future
-// and the caller can omit arguments where the default value is OK.
-type PublisherArgs struct {
-	// StreamName is the name of the stream like "PRODUCTS" or "ORDERS".
-	// If it does not exist, the stream will be created.
-	StreamName string
-	// Replicas is the number of replicas for the stream.
-	// If not set, the number of replicas is set to the number of NATS servers.
-	Replicas int
-}
 
 // StreamOpt is a functional option for configuring the stream.
 type StreamOpt func(c *nats.StreamConfig)
@@ -31,9 +20,28 @@ func WithMaxAge(maxAge time.Duration) StreamOpt {
 	}
 }
 
+// WithReplicas sets the number of replicas for the stream.
+func WithReplicas(replicas int) StreamOpt {
+	return func(c *nats.StreamConfig) {
+		replicas = validateReplicas(replicas, c.Replicas)
+		c.Replicas = replicas
+	}
+}
+
+// WithSubjects adds additional subjects to the stream
+func WithSubjects(subjects ...string) StreamOpt {
+	return func(c *nats.StreamConfig) {
+		for _, subject := range subjects {
+			if !slices.Contains(c.Subjects, subject) {
+				c.Subjects = append(c.Subjects, subject)
+			}
+		}
+	}
+}
+
 // MustMakePublisher creates a new Publisher that publishes to a NATS stream.
-func (c *Connection) MustMakePublisher(args PublisherArgs, opts ...StreamOpt) *Publisher {
-	pub, err := c.NewPublisher(args, opts...)
+func (c *Connection) MustMakePublisher(streamName string, opts ...StreamOpt) *Publisher {
+	pub, err := c.NewPublisher(streamName, opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -41,16 +49,16 @@ func (c *Connection) MustMakePublisher(args PublisherArgs, opts ...StreamOpt) *P
 }
 
 // NewPublisher creates a new Publisher that publishes to a NATS stream.
-func (c *Connection) NewPublisher(args PublisherArgs, opts ...StreamOpt) (*Publisher, error) {
-	if err := validateStreamName(args.StreamName); err != nil {
+func (c *Connection) NewPublisher(streamName string, opts ...StreamOpt) (*Publisher, error) {
+	if err := validateStreamName(streamName); err != nil {
 		return nil, err
 	}
 
-	replicas := c.validateReplicas(args.Replicas)
+	replicas := len(c.nats.Servers())
 
 	streamConfig := &nats.StreamConfig{
-		Name:       args.StreamName,
-		Subjects:   []string{args.StreamName + ".>"},
+		Name:       streamName,
+		Subjects:   []string{streamName + ".>"},
 		Storage:    defaultStorageType,
 		Replicas:   replicas,
 		Duplicates: defaultDuplicationWindow,
@@ -68,7 +76,7 @@ func (c *Connection) NewPublisher(args PublisherArgs, opts ...StreamOpt) (*Publi
 	p := &Publisher{
 		conn:       c,
 		logger:     c.logger,
-		streamName: args.StreamName,
+		streamName: streamName,
 	}
 	return p, nil
 }
@@ -117,12 +125,12 @@ func validateStreamName(streamName string) error {
 }
 
 // return the number of replicas between 3 and 5
-func (c *Connection) validateReplicas(replicas int) int {
-	if replicas < 1 {
-		replicas = len(c.nats.Servers())
+func validateReplicas(new, old int) int {
+	if new < 1 {
+		new = old
 	}
-	if replicas < 1 || replicas > 5 {
+	if new < 1 || new > 5 {
 		return 3
 	}
-	return replicas
+	return new
 }
