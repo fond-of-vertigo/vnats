@@ -21,9 +21,19 @@ type PublisherArgs struct {
 	Replicas int
 }
 
+// StreamOpt is a functional option for configuring the stream.
+type StreamOpt func(c *nats.StreamConfig)
+
+// WithMaxAge sets the maximum retention time for the stream.
+func WithMaxAge(maxAge time.Duration) StreamOpt {
+	return func(c *nats.StreamConfig) {
+		c.MaxAge = maxAge
+	}
+}
+
 // MustMakePublisher creates a new Publisher that publishes to a NATS stream.
-func (c *Connection) MustMakePublisher(args PublisherArgs) *Publisher {
-	pub, err := c.NewPublisher(args)
+func (c *Connection) MustMakePublisher(args PublisherArgs, opts ...StreamOpt) *Publisher {
+	pub, err := c.NewPublisher(args, opts...)
 	if err != nil {
 		panic(err)
 	}
@@ -31,21 +41,27 @@ func (c *Connection) MustMakePublisher(args PublisherArgs) *Publisher {
 }
 
 // NewPublisher creates a new Publisher that publishes to a NATS stream.
-func (c *Connection) NewPublisher(args PublisherArgs) (*Publisher, error) {
+func (c *Connection) NewPublisher(args PublisherArgs, opts ...StreamOpt) (*Publisher, error) {
 	if err := validateStreamName(args.StreamName); err != nil {
 		return nil, err
 	}
 
 	replicas := c.validateReplicas(args.Replicas)
 
-	if err := c.nats.EnsureStreamExists(&nats.StreamConfig{
+	streamConfig := &nats.StreamConfig{
 		Name:       args.StreamName,
 		Subjects:   []string{args.StreamName + ".>"},
 		Storage:    defaultStorageType,
 		Replicas:   replicas,
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     time.Hour * 24 * 30,
-	}); err != nil {
+	}
+
+	for _, opt := range opts {
+		opt(streamConfig)
+	}
+
+	if err := c.nats.EnsureStreamExists(streamConfig); err != nil {
 		return nil, fmt.Errorf("publisher could not be created: %w", err)
 	}
 
