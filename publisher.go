@@ -23,8 +23,7 @@ func WithMaxAge(maxAge time.Duration) StreamOpt {
 // WithReplicas sets the number of replicas for the stream.
 func WithReplicas(replicas int) StreamOpt {
 	return func(c *nats.StreamConfig) {
-		replicas = validateReplicas(replicas, c.Replicas)
-		c.Replicas = replicas
+		c.Replicas = validateReplicas(replicas, c.Replicas)
 	}
 }
 
@@ -40,6 +39,8 @@ func WithSubjects(subjects ...string) StreamOpt {
 }
 
 // MustMakePublisher creates a new Publisher that publishes to a NATS stream.
+// streamName is the name of the stream to publish to e.g. ORDERS, AVAILABILITIES
+// if it does not exist, it will be created.
 func (c *Connection) MustMakePublisher(streamName string, opts ...StreamOpt) *Publisher {
 	pub, err := c.NewPublisher(streamName, opts...)
 	if err != nil {
@@ -49,18 +50,18 @@ func (c *Connection) MustMakePublisher(streamName string, opts ...StreamOpt) *Pu
 }
 
 // NewPublisher creates a new Publisher that publishes to a NATS stream.
+// streamName is the name of the stream to publish to e.g. ORDERS, AVAILABILITIES
+// if it does not exist, it will be created.
 func (c *Connection) NewPublisher(streamName string, opts ...StreamOpt) (*Publisher, error) {
 	if err := validateStreamName(streamName); err != nil {
 		return nil, err
 	}
 
-	replicas := len(c.nats.Servers())
-
 	streamConfig := &nats.StreamConfig{
 		Name:       streamName,
 		Subjects:   []string{streamName + ".>"},
 		Storage:    defaultStorageType,
-		Replicas:   replicas,
+		Replicas:   len(c.nats.Servers()),
 		Duplicates: defaultDuplicationWindow,
 		MaxAge:     time.Hour * 24 * 30,
 	}
